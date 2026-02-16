@@ -2,7 +2,7 @@
 
 import pytest
 
-from deltahf.xtb import build_xtb_command, parse_total_energy
+from deltahf.xtb import build_xtb_command, parse_total_energy, parse_wbo_file
 
 
 class TestParseTotalEnergy:
@@ -75,3 +75,33 @@ class TestBuildXtbCommand:
     def test_uhf_zero_omitted(self):
         cmd = build_xtb_command("/tmp/mol.xyz", uhf=0)
         assert "--uhf" not in cmd
+
+
+class TestParseWboFile:
+    def test_parse_nitromethane_wbo(self, tmp_path):
+        """Parse WBO file for nitromethane (xTB format: 1-based indices)."""
+        wbo_content = (
+            "           1           2  0.94413409148182448\n"
+            "           2           3   1.4839822100747204\n"
+            "           2           4   1.4839826063331538\n"
+            "           3           4  0.37705420781274634\n"
+            "           1           5  0.97358453582634685\n"
+            "           1           6  0.97358614085771944\n"
+            "           1           7  0.95072904780885048\n"
+        )
+        wbo_file = tmp_path / "wbo"
+        wbo_file.write_text(wbo_content)
+
+        wbos = parse_wbo_file(wbo_file)
+
+        # Converted to 0-based indices
+        assert wbos[(0, 1)] == pytest.approx(0.944, abs=0.001)
+        assert wbos[(1, 0)] == pytest.approx(0.944, abs=0.001)  # symmetric
+        assert wbos[(1, 2)] == pytest.approx(1.484, abs=0.001)  # N=O double bond
+        assert wbos[(1, 3)] == pytest.approx(1.484, abs=0.001)
+
+    def test_symmetric_lookup(self, tmp_path):
+        wbo_file = tmp_path / "wbo"
+        wbo_file.write_text("           1           2  1.5\n")
+        wbos = parse_wbo_file(wbo_file)
+        assert wbos[(0, 1)] == wbos[(1, 0)]

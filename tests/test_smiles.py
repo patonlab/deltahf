@@ -2,7 +2,7 @@
 
 import pytest
 
-from deltahf.smiles import classify_atoms_7param, count_atoms, smiles_to_mol
+from deltahf.smiles import classify_atoms_7param, classify_atoms_7param_from_wbo, count_atoms, smiles_to_mol
 
 
 class TestSmilesToMol:
@@ -149,5 +149,47 @@ class TestClassifyAtoms7Param:
     def test_returns_all_seven_keys(self):
         """Result dict always has all 7 keys."""
         counts = classify_atoms_7param("C")
+        expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime"}
+        assert set(counts.keys()) == expected_keys
+
+
+class TestClassifyAtoms7ParamFromWbo:
+    """Test 7-param classification using xTB Wiberg bond orders."""
+
+    def test_nitromethane_with_xtb_wbos(self):
+        """Nitromethane WBOs: N-O bonds ~1.48 (> 1.25 -> N' and O')."""
+        # Atom order for C[N+](=O)[O-] with explicit H: C(0), N(1), O(2), O(3), H(4), H(5), H(6)
+        wbos = {
+            (0, 1): 0.944, (1, 0): 0.944,
+            (1, 2): 1.484, (2, 1): 1.484,
+            (1, 3): 1.484, (3, 1): 1.484,
+            (2, 3): 0.377, (3, 2): 0.377,
+            (0, 4): 0.974, (4, 0): 0.974,
+            (0, 5): 0.974, (5, 0): 0.974,
+            (0, 6): 0.951, (6, 0): 0.951,
+        }
+        counts = classify_atoms_7param_from_wbo("C[N+](=O)[O-]", wbos)
+        assert counts["C"] == 1  # C-N bond is 0.944 < 1.25
+        assert counts["N_prime"] == 1  # N-O bonds are 1.484 > 1.25
+        assert counts["O_prime"] == 2  # O-N bonds are 1.484 > 1.25
+        assert counts["H"] == 3
+
+    def test_methane_all_single(self):
+        """Methane: all C-H bonds ~0.99 (< 1.25 -> C not C')."""
+        wbos = {
+            (0, 1): 0.99, (1, 0): 0.99,
+            (0, 2): 0.99, (2, 0): 0.99,
+            (0, 3): 0.99, (3, 0): 0.99,
+            (0, 4): 0.99, (4, 0): 0.99,
+        }
+        counts = classify_atoms_7param_from_wbo("C", wbos)
+        assert counts["C"] == 1
+        assert counts["C_prime"] == 0
+        assert counts["H"] == 4
+
+    def test_returns_all_seven_keys(self):
+        """Result dict always has all 7 keys."""
+        wbos = {(0, 1): 0.99, (1, 0): 0.99}
+        counts = classify_atoms_7param_from_wbo("C", wbos)
         expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime"}
         assert set(counts.keys()) == expected_keys

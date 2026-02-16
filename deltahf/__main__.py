@@ -15,6 +15,25 @@ from deltahf.atom_equivalents import (
 )
 from deltahf.pipeline import process_csv, process_molecule
 
+BANNER = (
+    "\n"
+    r" ____  _  _  ____" "\n"
+    r"(    \/ )( \(  __)" "\n"
+    r" ) D () __ ( ) _)" "\n"
+    r"(____/\_)(_/(__)" "\n"
+    "  ~~ deltahf ~~\n"
+)
+
+CITATIONS = """\
+Data sources:
+  [1] Cawkwell, M. J.; Manner, V. W.; Kress, J. D.
+      J. Chem. Inf. Model. 2021, 61, 3337-3347
+      DOI: 10.1021/acs.jcim.1c00312
+  [2] Yalamanchi, K. K.; Monge-Palacios, M.; van Oudenhoven, V. C. O.;
+      Gao, X.; Sarathy, S. M.
+      J. Phys. Chem. A 2020, 124, 6270-6283
+      DOI: 10.1021/acs.jpca.0c02785"""
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -31,6 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
     fit_parser.add_argument("--output", "-o", help="Output JSON file for fitted epsilon values")
     fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
+    fit_parser.add_argument(
+        "--use-xtb-wbos", action="store_true",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
+    )
 
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
@@ -39,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
     pred_parser.add_argument("--model", choices=["4param", "7param"], default="4param")
     pred_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
+    pred_parser.add_argument(
+        "--use-xtb-wbos", action="store_true",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
+    )
 
     return parser
 
@@ -55,8 +82,13 @@ def cmd_fit(args):
         print(f"Error: {e}")
         sys.exit(1)
 
+    print(CITATIONS)
+    print()
+
     df = pd.read_csv(args.input)
     print(f"Loaded {len(df)} molecules from {args.input}")
+    if args.use_xtb_wbos:
+        print("Using xTB Wiberg bond orders for 7-param atom classification")
 
     # Process all molecules to get xTB energies
     print("Running xTB optimizations...")
@@ -65,7 +97,7 @@ def cmd_fit(args):
         smiles = row["smiles"]
         name = row.get("name", f"mol_{idx}")
         print(f"  [{idx + 1}/{len(df)}] {name}: {smiles}")
-        result = process_molecule(smiles, n_conformers=args.n_conformers, name=name)
+        result = process_molecule(smiles, n_conformers=args.n_conformers, name=name, use_xtb_wbos=args.use_xtb_wbos)
         if result.error:
             print(f"    ERROR: {result.error}")
         else:
@@ -181,6 +213,7 @@ def cmd_predict(args):
         epsilon_4param=epsilon if args.model == "4param" else None,
         epsilon_7param=epsilon if args.model == "7param" else None,
         output_path=Path(args.output) if args.output else None,
+        use_xtb_wbos=args.use_xtb_wbos,
     )
 
     print(results_df.to_string(index=False))
@@ -195,6 +228,8 @@ def main(argv=None):
     if args.command is None:
         parser.print_help()
         sys.exit(1)
+
+    print(BANNER)
 
     if args.command == "fit":
         cmd_fit(args)

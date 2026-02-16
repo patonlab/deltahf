@@ -15,6 +15,7 @@ class XtbResult:
     optimized_xyz_path: Path | None
     converged: bool
     stdout: str
+    wbo_path: Path | None = None
 
 
 def find_xtb_binary() -> str:
@@ -55,6 +56,23 @@ def parse_total_energy(output: str) -> float:
     return float(matches[-1])
 
 
+def parse_wbo_file(wbo_path: Path) -> dict[tuple[int, int], float]:
+    """Parse xTB Wiberg bond order file.
+
+    The wbo file has lines of the form: atom_i  atom_j  bond_order
+    where atom indices are 1-based. Returns a dict mapping (i, j) pairs
+    (converted to 0-based) to bond orders.
+    """
+    wbos: dict[tuple[int, int], float] = {}
+    for line in wbo_path.read_text().strip().splitlines():
+        parts = line.split()
+        i, j = int(parts[0]) - 1, int(parts[1]) - 1
+        bo = float(parts[2])
+        wbos[(i, j)] = bo
+        wbos[(j, i)] = bo
+    return wbos
+
+
 def run_xtb_optimization(
     xyz_path: Path,
     gfn: int = 2,
@@ -88,10 +106,12 @@ def run_xtb_optimization(
 
     energy = parse_total_energy(result.stdout)
     opt_xyz = work_dir / "xtbopt.xyz"
+    wbo_file = work_dir / "wbo"
 
     return XtbResult(
         energy=energy,
         optimized_xyz_path=opt_xyz if opt_xyz.exists() else None,
         converged=True,
         stdout=result.stdout,
+        wbo_path=wbo_file if wbo_file.exists() else None,
     )

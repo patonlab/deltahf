@@ -8,8 +8,8 @@ import pandas as pd
 
 from deltahf.atom_equivalents import HARTREE_TO_KCAL, predict_dhf
 from deltahf.conformers import generate_conformers, get_lowest_conformers, write_xyz
-from deltahf.smiles import classify_atoms_7param, count_atoms
-from deltahf.xtb import run_xtb_optimization
+from deltahf.smiles import classify_atoms_7param, classify_atoms_7param_from_wbo, count_atoms
+from deltahf.xtb import parse_wbo_file, run_xtb_optimization
 
 
 @dataclass
@@ -35,13 +35,15 @@ def process_molecule(
     epsilon_7param: dict | None = None,
     work_dir: Path | None = None,
     name: str | None = None,
+    use_xtb_wbos: bool = False,
 ) -> MoleculeResult:
     """Full pipeline for a single molecule."""
     result = MoleculeResult(smiles=smiles, name=name)
 
     try:
         result.atom_counts_4param = count_atoms(smiles)
-        result.atom_counts_7param = classify_atoms_7param(smiles)
+        if not use_xtb_wbos:
+            result.atom_counts_7param = classify_atoms_7param(smiles)
 
         mol, energies = generate_conformers(smiles, num_confs=num_initial_confs)
         result.n_conformers_generated = len(energies)
@@ -49,6 +51,7 @@ def process_molecule(
         lowest_cids = get_lowest_conformers(mol, energies, n=n_conformers)
 
         best_energy = float("inf")
+        best_wbo_path = None
         if work_dir is None:
             work_dir = Path(tempfile.mkdtemp())
 
@@ -61,6 +64,7 @@ def process_molecule(
             xtb_result = run_xtb_optimization(xyz_path)
             if xtb_result.converged and xtb_result.energy < best_energy:
                 best_energy = xtb_result.energy
+                best_wbo_path = xtb_result.wbo_path
                 result.n_conformers_optimized += 1
 
         if best_energy == float("inf"):
@@ -69,6 +73,10 @@ def process_molecule(
 
         result.xtb_energy = best_energy
         result.xtb_energy_kcal = best_energy * HARTREE_TO_KCAL
+
+        if use_xtb_wbos and best_wbo_path is not None:
+            wbos = parse_wbo_file(best_wbo_path)
+            result.atom_counts_7param = classify_atoms_7param_from_wbo(smiles, wbos)
 
         if epsilon_4param:
             result.dhf_4param = predict_dhf(result.xtb_energy_kcal, result.atom_counts_4param, epsilon_4param)
@@ -87,6 +95,7 @@ def process_csv(
     epsilon_4param: dict | None = None,
     epsilon_7param: dict | None = None,
     output_path: Path | None = None,
+    use_xtb_wbos: bool = False,
 ) -> pd.DataFrame:
     """Process a CSV of SMILES and return results."""
     df = pd.read_csv(csv_path)
@@ -101,6 +110,7 @@ def process_csv(
             epsilon_4param=epsilon_4param,
             epsilon_7param=epsilon_7param,
             name=mol_name,
+            use_xtb_wbos=use_xtb_wbos,
         )
         results.append(mol_result)
 
