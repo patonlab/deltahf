@@ -1,7 +1,6 @@
 """Training data loading utilities."""
 
 from importlib import resources
-from pathlib import Path
 
 import pandas as pd
 

@@ -1,0 +1,104 @@
+id,name,formula,smiles,exp_dhf_kcal_mol
+1,nitromethane,CH3NO2,C[N+](=O)[O-],-19.3
+2,tetranitromethane,CN4O8,[O-][N+](=O)C([N+](=O)[O-])([N+](=O)[O-])[N+](=O)[O-],19.7
+3,azidotrinitromethane,CN6O6,[N-]=[N+]=NC([N+](=O)[O-])([N+](=O)[O-])[N+](=O)[O-],84.2
+4,N-methyl-N-nitromethanamine,C2H6N2O2,CN(C)[N+](=O)[O-],-1.2
+5,"1-azido-1,1-dinitroethane",C2H3N5O4,[N-]=[N+]=NC(C)([N+](=O)[O-])[N+](=O)[O-],60.4
+6,hexanitroethane,C2N6O12,[O-][N+](=O)C([N+](=O)[O-])([N+](=O)[O-])C([N+](=O)[O-])([N+](=O)[O-])[N+](=O)[O-],42.8
+7,nitroglycerin,C3H5N3O9,[O-][N+](=O)OCC(CO[N+](=O)[O-])O[N+](=O)[O-],-66.71
+8,"hexahydro-1,3,5-trinitroso-1,3,5-triazine",C3H6N6O3,O=NN1CN(N=O)CN(N=O)C1,94.3
+9,RDX,C3H6N6O6,[O-][N+](=O)N1CN([N+](=O)[O-])CN([N+](=O)[O-])C1,45.8
+10,"1,4-dinitroso-piperazine",C4H8N4O2,O=NN1CCN(N=O)CC1,46.4
+11,"1,4-dinitro-piperazine",C4H8N4O4,[O-][N+](=O)N1CCN([N+](=O)[O-])CC1,13.9
+12,"N-nitrobis(2,2,2-trinitroethyl)amine",C4H4N8O14,[O-][N+](=O)N(CC([N+](=O)[O-])([N+](=O)[O-])[N+](=O)[O-])CC([N+](=O)[O-])([N+](=O)[O-])[N+](=O)[O-],21.42
+13,nitrobenzene,C6H5NO2,[O-][N+](=O)c1ccccc1,16.38
+14,2-nitrophenol,C6H5NO3,Oc1ccccc1[N+](=O)[O-],-31.62
+15,3-nitrophenol,C6H5NO3,Oc1cccc([N+](=O)[O-])c1,-26.12
+16,4-nitrophenol,C6H5NO3,Oc1ccc([N+](=O)[O-])cc1,-27.41
+17,m-nitroaniline,C6H6N2O2,Nc1cccc([N+](=O)[O-])c1,14.9
+18,p-nitroaniline,C6H6N2O2,Nc1ccc([N+](=O)[O-])cc1,13.2
+19,azidobenzene,C6H5N3,[N-]=[N+]=Nc1ccccc1,93.0
+20,1-azido-4-nitrobenzene,C6H4N4O2,[N-]=[N+]=Nc1ccc([N+](=O)[O-])cc1,93.1
+21,"N-nitrobis(2,2-dinitropropyl)amine",C6H10N6O10,[O-][N+](=O)N(CC(C)([N+](=O)[O-])[N+](=O)[O-])CC(C)([N+](=O)[O-])[N+](=O)[O-],-31.7
+22,4-nitrotoluene,C7H7NO2,Cc1ccc([N+](=O)[O-])cc1,7.38
+23,"2,4-dinitrotoluene",C7H6N2O4,Cc1ccc([N+](=O)[O-])cc1[N+](=O)[O-],7.99
+24,benzyl azide,C7H7N3,[N-]=[N+]=NCc1ccccc1,99.5
+25,3-azido-3-ethylpentane,C7H15N3,[N-]=[N+]=NC(CC)(CC)CC,40.6
+26,TNT,C7H5N3O6,Cc1c([N+](=O)[O-])cc([N+](=O)[O-])cc1[N+](=O)[O-],5.75
+27,"2,2-dinitroadamantane",C10H14N2O4,[O-][N+](=O)C1([N+](=O)[O-])C2CC3CC1CC(C2)C3,-36.88
+28,1-azido-adamantane,C10H15N3,[N-]=[N+]=NC12CC3CC(CC(C3)C1)C2,51.6
+29,2-azido-2-phenylpropane,C9H11N3,[N-]=[N+]=NC(C)(C)c1ccccc1,87.4
+30,HNS,C14H6N6O12,[O-][N+](=O)c1cc([N+](=O)[O-])cc([N+](=O)[O-])c1/C=C/c1c([N+](=O)[O-])cc([N+](=O)[O-])cc1[N+](=O)[O-],56.98
+31,methyl nitrite,CH3NO2,CON=O,-15.64
+32,methyl nitrate,CH3NO3,CO[N+](=O)[O-],-29.2
+33,dinitromethane,CH2N2O4,[O-][N+](=O)C[N+](=O)[O-],-14.1
+34,ethyl nitrite,C2H5NO2,CCON=O,-25.9
+35,ethyl nitrate,C2H5NO3,CCO[N+](=O)[O-],-37.0
+36,propyl nitrite,C3H7NO2,CCCON=O,-28.4
+37,t-butyl nitrate,C4H9NO3,CC(C)(C)O[N+](=O)[O-],-42.32
+38,n-butyl nitrite,C4H9NO2,CCCCON=O,-34.8
+39,2-methyl-2-nitropropane,C4H9NO2,CC(C)(C)[N+](=O)[O-],-41.0
+40,"3,4-bis(nitratomethyl)furazan",C4H4N4O7,[O-][N+](=O)OCC1=NON=C1CO[N+](=O)[O-],2.6
+41,1-nitro-piperidine,C5H10N2O2,[O-][N+](=O)N1CCCCC1,-10.6
+42,nitrosobenzene,C6H5NO,O=Nc1ccccc1,48.1
+43,(nitromethyl)benzene,C7H7NO2,[O-][N+](=O)Cc1ccccc1,7.34
+44,(dinitromethyl)benzene,C7H6N2O4,[O-][N+](=O)C([N+](=O)[O-])c1ccccc1,8.3
+45,"1,3-dimethyl-2-nitrobenzene",C8H9NO2,Cc1cccc(C)c1[N+](=O)[O-],2.1
+46,methane,CH4,C,-17.9
+47,ammonia,NH3,N,-11.0
+48,water,H2O,O,-57.8
+49,acetylene,C2H2,C#C,54.2
+50,ethylene,C2H4,C=C,12.5
+51,ethane,C2H6,CC,-20.1
+52,hydrogen cyanide,HCN,C#N,31.5
+53,carbon monoxide,CO,[C-]#[O+],-26.4
+54,formaldehyde,CH2O,C=O,-26.0
+55,methanol,CH4O,CO,-48.0
+56,nitrogen,N2,N#N,0.0
+57,hydrazine,N2H4,NN,22.8
+58,hydrogen peroxide,H2O2,OO,-32.5
+59,carbon dioxide,CO2,O=C=O,-94.1
+60,nitrous oxide,N2O,[N-]=[N+]=O,19.6
+61,ozone,O3,[O-][O+]=O,34.1
+62,propyne,C3H4,CC#C,44.2
+63,allene,C3H4,C=C=C,45.5
+64,cyclopropene,C3H4,C1=CC1,66.2
+65,propylene,C3H6,CC=C,4.8
+66,cyclopropane,C3H6,C1CC1,12.7
+67,propane,C3H8,CCC,-25.0
+68,butadiene,C4H6,C=CC=C,26.3
+69,2-butyne,C4H6,CC#CC,34.8
+70,methylene cyclopropane,C4H6,C=C1CC1,47.9
+71,bicyclobutane,C4H6,C12CC1C2,51.9
+72,cyclobutene,C4H6,C1=CCC1,37.4
+73,cyclobutane,C4H8,C1CCC1,6.8
+74,isobutene,C4H8,CC(=C)C,-4.0
+75,trans-butane,C4H10,CCCC,-30.0
+76,isobutane,C4H10,CC(C)C,-32.1
+77,spiropentane,C5H8,C1CC11CC1,44.3
+78,benzene,C6H6,c1ccccc1,19.7
+79,methyl amine,CH5N,CN,-5.5
+80,acetonitrile,C2H3N,CC#N,18.0
+81,formic acid,CH2O2,OC=O,-90.5
+82,methyl formate,C2H4O2,COC=O,-85.0
+83,acetamide,C2H5NO,CC(N)=O,-57.0
+84,aziridine,C2H5N,C1CN1,30.2
+85,cyanogen,C2N2,N#CC#N,73.3
+86,dimethylamine,C2H7N,CNC,-4.4
+87,ethylamine,C2H7N,CCN,-11.3
+88,ketene,C2H2O,C=C=O,-11.4
+89,ethylene oxide,C2H4O,C1CO1,-12.6
+90,acetaldehyde,C2H4O,CC=O,-39.7
+91,glyoxal,C2H2O2,O=CC=O,-50.7
+92,ethanol,C2H6O,CCO,-56.2
+93,dimethyl ether,C2H6O,COC,-44.0
+94,acrylonitrile,C3H3N,C=CC#N,43.2
+95,acetone,C3H6O,CC(C)=O,-51.9
+96,acetic acid,C2H4O2,CC(O)=O,-103.4
+97,isopropanol,C3H8O,CC(O)C,-65.2
+98,methyl ethyl ether,C3H8O,CCOC,-51.7
+99,trimethylamine,C3H9N,CN(C)C,-5.7
+100,furan,C4H4O,c1ccoc1,-8.3
+101,pyrrole,C4H5N,c1cc[nH]c1,25.9
+102,pyridine,C5H5N,c1ccncc1,33.6
+103,hydrogen,H2,[HH],0.0
