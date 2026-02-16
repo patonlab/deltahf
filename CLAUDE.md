@@ -59,4 +59,9 @@ Uses RDKit `GetBondTypeAsDouble()` from the molecular graph. An atom is "primed"
 
 ## Training Data
 
-`deltahf/data/training_data.csv` contains 103 molecules from Table 1 of the paper with columns: `id, name, formula, smiles, exp_dhf_kcal_mol`. SMILES were curated from NIST WebBook (https://webbook.nist.gov/chemistry/) and validated against RDKit-computed molecular formulas.
+`deltahf/data/training_data.csv` contains 292 molecules with columns: `id, name, formula, smiles, exp_dhf_kcal_mol, source`. Two sources:
+
+- **Cawkwell2021** (103 CHNO molecules): Table 1 of Cawkwell et al. (J. Chem. Inf. Model. 2021, 61, 3337–3347)
+- **Yalamanchi2020** (189 CH cyclic hydrocarbons): SI of Yalamanchi et al. (J. Phys. Chem. A 2020, 124, 6270–6283, DOI: 10.1021/acs.jpca.0c02785)
+
+All SMILES validated against RDKit-computed molecular formulas. Yalamanchi enthalpies converted from kJ/mol to kcal/mol.

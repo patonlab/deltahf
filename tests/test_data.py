@@ -23,15 +23,15 @@ class TestTrainingData:
     def df(self):
         return load_training_data()
 
-    def test_has_103_rows(self, df):
-        assert len(df) == 103
+    def test_has_292_rows(self, df):
+        assert len(df) == 292
 
     def test_required_columns(self, df):
-        for col in ["id", "name", "formula", "smiles", "exp_dhf_kcal_mol"]:
+        for col in ["id", "name", "formula", "smiles", "exp_dhf_kcal_mol", "source"]:
             assert col in df.columns
 
-    def test_ids_are_1_to_103(self, df):
-        assert list(df["id"]) == list(range(1, 104))
+    def test_ids_are_sequential(self, df):
+        assert list(df["id"]) == list(range(1, 293))
 
     def test_all_smiles_parseable(self, df):
         for idx, row in df.iterrows():
@@ -57,6 +57,17 @@ class TestTrainingData:
         row = df[df["id"] == 26].iloc[0]
         assert row["name"] == "TNT"
         assert row["exp_dhf_kcal_mol"] == pytest.approx(5.75)
+
+    def test_cyclohexane_entry(self, df):
+        row = df[df["name"] == "cyclohexane"].iloc[0]
+        assert row["exp_dhf_kcal_mol"] == pytest.approx(-123.4 / 4.184, abs=0.01)
+        assert row["source"] == "Yalamanchi2020"
+
+    def test_sources(self, df):
+        sources = set(df["source"])
+        assert sources == {"Cawkwell2021", "Yalamanchi2020"}
+        assert len(df[df["source"] == "Cawkwell2021"]) == 103
+        assert len(df[df["source"] == "Yalamanchi2020"]) == 189
 
     def test_exp_dhf_values_reasonable(self, df):
         """Experimental ΔHf° should be in a reasonable range for organic molecules."""

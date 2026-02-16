@@ -132,7 +132,9 @@ def cmd_fit(args):
 
     if args.csv:
         results_df = df.copy()
-        results_df["xtb_energy_eh"] = [results[i].xtb_energy if results[i].error is None else None for i in range(len(df))]
+        results_df["xtb_energy_eh"] = [
+            results[i].xtb_energy if results[i].error is None else None for i in range(len(df))
+        ]
         results_df["xtb_energy_kcal_mol"] = [
             results[i].xtb_energy_kcal if results[i].error is None else None for i in range(len(df))
         ]

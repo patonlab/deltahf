@@ -108,7 +108,7 @@ print(f"7-param counts: {result.atom_counts_7param}")
 
 ### Example 2: Fit Atom Equivalents on the Training Set
 
-The package includes a curated dataset of 103 molecules from Table 1 of the reference paper with experimental ΔHf° values.
+The package includes a curated dataset of 292 molecules with experimental ΔHf° values from two sources: 103 CHNO molecules from Cawkwell et al. (2021) and 189 cyclic hydrocarbons from Yalamanchi et al. (2020).<sup>2</sup>
 
 ```bash
 python -m deltahf fit \
@@ -119,7 +119,7 @@ python -m deltahf fit \
     -o params.json
 ```
 
-This processes all 103 molecules through the pipeline (SMILES → RDKit conformers → xTB optimization), fits atom equivalents by least squares, and reports RMSD, maximum deviation, and 10-fold cross-validation error for both models:
+This processes all 292 molecules through the pipeline (SMILES → RDKit conformers → xTB optimization), fits atom equivalents by least squares, and reports RMSD, maximum deviation, and 10-fold cross-validation error for both models:
 
 ```
 103/103 molecules completed successfully
@@ -198,6 +198,7 @@ pytest
 ## References
 
 1. Cawkwell, M. J.; Manner, V. W.; Kress, J. D. *J. Chem. Inf. Model.* **2021**, *61*, 3337–3347 [**DOI:** 10.1021/acs.jcim.1c00312](https://doi.org/10.1021/acs.jcim.1c00312)
+2. Yalamanchi, K. K.; Monge-Palacios, M.; van Oudenhoven, V. C. O.; Gao, X.; Sarathy, S. M. *J. Phys. Chem. A* **2020**, *124*, 6270–6283 [**DOI:** 10.1021/acs.jpca.0c02785](https://doi.org/10.1021/acs.jpca.0c02785)
 
 ---
 License: [MIT](https://opensource.org/licenses/MIT)
