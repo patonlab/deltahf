@@ -154,4 +154,4 @@ class TestIsomerizationInPipeline:
 
         assert result.error is not None
         assert "isomerized" in result.error
-        assert result.n_conformers_isomerized == 3
+        assert result.n_conformers_isomerized >= 1

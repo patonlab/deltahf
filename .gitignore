@@ -33,6 +33,7 @@ xtbopt.xyz
 # Supplementary data (large files, not tracked)
 *.xlsx
 TODO
+*.pdf
 
 # Claude Code
 CLAUDE.md
@@ -41,3 +42,6 @@ CLAUDE.md
 params.json
 fit_results.csv
 .xtb_cache/cache.json
+Database compiled.csv
+benchmark_results.csv
+.benchmark_cache/

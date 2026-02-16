@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from deltahf.atom_equivalents import HARTREE_TO_KCAL, predict_dhf
-from deltahf.conformers import check_connectivity, generate_conformers, get_lowest_conformers, write_xyz
+from deltahf.conformers import (
+    check_connectivity,
+    generate_conformers,
+    get_lowest_conformers,
+    prune_conformers,
+    write_xyz,
+)
 from deltahf.smiles import (
     classify_atoms_7param,
     classify_atoms_7param_from_wbo,
@@ -94,6 +100,7 @@ def process_molecule(
                 return result
 
         mol, energies = generate_conformers(smiles, num_confs=num_initial_confs)
+        energies = prune_conformers(mol, energies)
         result.n_conformers_generated = len(energies)
 
         lowest_cids = get_lowest_conformers(mol, energies, n=n_conformers)

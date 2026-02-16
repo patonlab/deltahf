@@ -172,13 +172,23 @@ python -m deltahf predict \
     -o predictions.csv
 ```
 
+## Benchmarking
+
+`benchmark.py` measures how the number of conformers affects model accuracy and wall-clock time:
+
+```bash
+python benchmark.py
+```
+
+This runs the full fitting workflow at `n_conformers` = 1, 3, 5, 10, timing each run and reporting Adj. R², RMSD, MAD, max deviation, and CV RMSD for all four models. Results are saved to `benchmark_results.csv`. xTB results are cached per `n_conformers` in `.benchmark_cache/`, so re-runs skip the expensive optimization step.
+
 ## Pipeline
 
 For each molecule, deltahf performs the following steps:
 
 1. **SMILES parsing** — Convert SMILES to an RDKit mol object with explicit hydrogens
-2. **Conformer generation** — Generate 3D conformers via ETKDG and rank by MMFF94 energy
-3. **xTB optimization** — Optimize the lowest *n* conformers with GFN2-xTB
+2. **Conformer generation** — Generate 3D conformers via ETKDG, rank by MMFF94 energy, and prune near-duplicates by RMSD
+3. **xTB optimization** — Optimize the lowest *n* unique conformers with GFN2-xTB
 4. **Connectivity check** — Verify the optimized geometry hasn't isomerized (atom connectivity preserved)
 5. **ΔHf° prediction** — Apply the atom equivalent formula using the lowest xTB energy
 

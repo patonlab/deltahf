@@ -2,7 +2,7 @@
 
 import pytest
 
-from deltahf.conformers import generate_conformers, get_lowest_conformers, write_xyz
+from deltahf.conformers import generate_conformers, get_lowest_conformers, prune_conformers, write_xyz
 
 
 class TestGenerateConformers:
@@ -46,6 +46,38 @@ class TestGenerateConformers:
         """Methane should embed successfully."""
         mol, energies = generate_conformers("C", num_confs=1)
         assert len(energies) >= 1
+
+
+class TestPruneConformers:
+    def test_keeps_at_least_one(self):
+        """Always keeps the lowest-energy conformer."""
+        mol, energies = generate_conformers("c1ccccc1", num_confs=20)
+        pruned = prune_conformers(mol, energies, rmsd_threshold=100.0)
+        assert len(pruned) >= 1
+
+    def test_rigid_molecule_has_fewer_unique(self):
+        """Benzene is rigid; pruning should reduce conformer count."""
+        mol, energies = generate_conformers("c1ccccc1", num_confs=50)
+        pruned = prune_conformers(mol, energies)
+        assert len(pruned) < len(energies)
+
+    def test_zero_threshold_keeps_all(self):
+        """Threshold of 0 means no pruning (all RMSDs > 0)."""
+        mol, energies = generate_conformers("CCCC", num_confs=20)
+        pruned = prune_conformers(mol, energies, rmsd_threshold=0.0)
+        assert len(pruned) == len(energies)
+
+    def test_preserves_energy_order(self):
+        """Pruned list stays sorted by energy."""
+        mol, energies = generate_conformers("CCCC", num_confs=20)
+        pruned = prune_conformers(mol, energies)
+        energy_vals = [e for e, _ in pruned]
+        assert energy_vals == sorted(energy_vals)
+
+    def test_single_conformer_unchanged(self):
+        mol, energies = generate_conformers("C", num_confs=1)
+        pruned = prune_conformers(mol, energies)
+        assert len(pruned) == len(energies)
 
 
 class TestGetLowestConformers:

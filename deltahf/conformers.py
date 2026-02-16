@@ -44,6 +44,33 @@ def generate_conformers(
     return mol, energies
 
 
+def prune_conformers(
+    mol: Chem.Mol,
+    energies: list[tuple[float, int]],
+    rmsd_threshold: float = 0.125,
+) -> list[tuple[float, int]]:
+    """Remove near-duplicate conformers by RMSD.
+
+    Greedy filter over the energy-sorted list: keep a conformer only if its
+    RMSD to all previously kept conformers exceeds the threshold.
+    Always keeps at least the lowest-energy conformer.
+    """
+    if len(energies) <= 1:
+        return list(energies)
+
+    kept: list[tuple[float, int]] = [energies[0]]
+    for energy, cid in energies[1:]:
+        is_unique = True
+        for _, kept_cid in kept:
+            rms = AllChem.GetConformerRMS(mol, cid, kept_cid)
+            if rms < rmsd_threshold:
+                is_unique = False
+                break
+        if is_unique:
+            kept.append((energy, cid))
+    return kept
+
+
 def get_lowest_conformers(
     mol: Chem.Mol,
     energies: list[tuple[float, int]],
