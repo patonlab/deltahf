@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
+import numpy as np
 from rdkit import Chem
-from rdkit.Chem import AllChem, rdDistGeom
+from rdkit.Chem import AllChem, rdDetermineBonds, rdDistGeom, rdmolops
 
 from deltahf.smiles import smiles_to_mol
 
@@ -62,3 +63,40 @@ def write_xyz(mol: Chem.Mol, conf_id: int, path: Path) -> None:
         pos = conf.GetAtomPosition(i)
         lines.append(f"{atom.GetSymbol():2s} {pos.x:12.6f} {pos.y:12.6f} {pos.z:12.6f}")
     path.write_text("\n".join(lines) + "\n")
+
+
+def check_connectivity(mol_ref: Chem.Mol, xyz_path: Path) -> bool:
+    """Check whether optimized geometry has the same connectivity as the reference.
+
+    Reads the optimized XYZ file, perceives bonds using RDKit's
+    DetermineConnectivity, and compares adjacency matrices (ignoring
+    bond orders) with the reference molecule.
+
+    Uses the connect-the-dots method first. If that finds a mismatch
+    (e.g. slightly stretched bonds in H2), retries with the van der Waals
+    method at a more generous covFactor before declaring isomerization.
+
+    Returns True if connectivity matches, False if isomerized or unreadable.
+    """
+    mol_opt = Chem.MolFromXYZFile(str(xyz_path))
+    if mol_opt is None:
+        return False
+
+    adj_ref = rdmolops.GetAdjacencyMatrix(mol_ref, useBO=False)
+
+    if mol_ref.GetNumAtoms() != mol_opt.GetNumAtoms():
+        return False
+
+    # Primary: connect-the-dots (default)
+    rdDetermineBonds.DetermineConnectivity(mol_opt)
+    adj_opt = rdmolops.GetAdjacencyMatrix(mol_opt, useBO=False)
+
+    if np.array_equal(adj_ref, adj_opt):
+        return True
+
+    # Fallback: VdW method with generous covFactor for stretched bonds
+    mol_opt2 = Chem.MolFromXYZFile(str(xyz_path))
+    rdDetermineBonds.DetermineConnectivity(mol_opt2, useVdw=True, covFactor=2.0)
+    adj_opt2 = rdmolops.GetAdjacencyMatrix(mol_opt2, useBO=False)
+
+    return bool(np.array_equal(adj_ref, adj_opt2))

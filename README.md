@@ -13,7 +13,20 @@ The core equation is:
 ΔHf° = u_xtb − Σ(nl × εl)
 ```
 
-where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy. Two models are available: a **4-parameter** model using elemental stoichiometry (C, H, N, O) and a **7-parameter** model that additionally distinguishes multiply-bonded atoms (C', N', O') using a bond order threshold of 1.25.
+where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy.
+
+### Atom Equivalent Models
+
+Four atom classification schemes are available:
+
+| Model | Parameters | Classification |
+|-------|-----------|----------------|
+| `4param` | 4 | Elemental stoichiometry: C, H, N, O |
+| `7param` | 7 | Adds multiply-bonded variants: C', N', O' (bond order > 1.25) |
+| `hybrid` | up to 10 | RDKit hybridization: C/N/O split by sp3, sp2, sp |
+| `extended` | up to 15 | Hybridization + H-count for carbon (e.g. C_sp3_3H, C_sp2_1H) |
+
+Parameters with zero training examples are automatically excluded from fitting.
 
 ## Quick Start
 
@@ -23,16 +36,8 @@ conda env create -f environment.yml
 conda activate deltahf
 pip install -e ".[dev]"
 
-# Sanity check with a single molecule
-python -c "
-from deltahf.pipeline import process_molecule
-r = process_molecule('C', n_conformers=1, name='methane')
-print(f'xTB energy: {r.xtb_energy:.6f} Eh ({r.xtb_energy_kcal:.2f} kcal/mol)')
-print(f'Atom counts: {r.atom_counts_4param}')
-"
-
-# Fit atom equivalents on 103 training molecules
-python -m deltahf fit -i deltahf/data/training_data.csv --model both --kfold 10 --n-conformers 1 -o params.json
+# Fit atom equivalents on the training set
+python -m deltahf fit -i deltahf/data/training_data.csv --model all --kfold 10 --n-conformers 1 -o params.json
 ```
 
 ## Installation
@@ -66,16 +71,20 @@ python -m deltahf [fit|predict] [options]
 Fit atom equivalent energies to a training set of molecules with known experimental ΔHf° values.
 
 ```bash
-python -m deltahf fit -i training.csv --model both --kfold 10 --n-conformers 5 -o params.json
+python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 5 -o params.json
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--input, -i` | CSV file with `smiles` and `exp_dhf_kcal_mol` columns (required). | — |
-| `--model` | Which model to fit: `4param`, `7param`, or `both`. | `both` |
+| `--model` | Which model(s) to fit: `4param`, `7param`, `hybrid`, `extended`, `both`, or `all`. | `both` |
 | `--kfold` | Number of cross-validation folds. | `10` |
 | `--n-conformers` | Number of lowest-energy RDKit conformers to optimize with xTB. | `5` |
 | `--output, -o` | Output JSON file for fitted epsilon values. | — |
+| `--csv` | Output CSV with training data and per-molecule predictions. | — |
+| `--use-xtb-wbos` | Use xTB Wiberg bond orders (instead of RDKit) for 7-param classification. | — |
+| `--cache-dir` | Directory for caching xTB results (enables restart capability). | — |
+| `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
 
 ### Subcommand: `predict`
 
@@ -89,9 +98,32 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 |--------|-------------|---------|
 | `--input, -i` | CSV file with a `smiles` column (required). | — |
 | `--epsilon` | JSON file with fitted atom equivalent energies (required). | — |
-| `--model` | Which model to use: `4param` or `7param`. | `4param` |
+| `--model` | Which model to use: `4param`, `7param`, `hybrid`, or `extended`. | `4param` |
 | `--n-conformers` | Number of conformers to optimize with xTB. | `5` |
 | `--output, -o` | Output CSV with predicted ΔHf° values. | — |
+| `--cache-dir` | Directory for caching xTB results. | — |
+| `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
+
+## Training Data
+
+`deltahf/data/training_data.csv` contains **314 CHNO molecules** with experimental ΔHf° values from two literature sources:
+
+| Source | Count | Description |
+|--------|-------|-------------|
+| Cawkwell et al. (2021)<sup>1</sup> | 102 | Energetic CHNO molecules + small reference compounds |
+| Yalamanchi et al. (2020)<sup>2</sup> | 212 | Cyclic hydrocarbons (CH only) |
+
+Each molecule is assigned a `category` label:
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| `energetic` | 45 | Explosives, nitro/azide/nitroso compounds |
+| `small_CHNO` | 57 | Small reference molecules (methane, water, ethanol, etc.) |
+| `cyclic_HC` | 189 | Cyclic hydrocarbons (cyclopentanes through naphthalenes) |
+| `strained_3ring` | 13 | Cyclopropane derivatives and quadricyclane |
+| `large_HC` | 10 | Large PAHs (pyrene, tetracene, etc.) and decylbenzene |
+
+Elemental composition: all molecules contain only C, H, N, O. The Yalamanchi subset contains only C and H.
 
 ## Examples
 
@@ -104,47 +136,22 @@ result = process_molecule("C[N+](=O)[O-]", n_conformers=1, name="nitromethane")
 print(f"xTB energy: {result.xtb_energy:.6f} Eh")
 print(f"4-param counts: {result.atom_counts_4param}")
 print(f"7-param counts: {result.atom_counts_7param}")
+print(f"hybrid counts:  {result.atom_counts_hybrid}")
 ```
 
-### Example 2: Fit Atom Equivalents on the Training Set
-
-The package includes a curated dataset of 292 molecules with experimental ΔHf° values from two sources: 103 CHNO molecules from Cawkwell et al. (2021) and 189 cyclic hydrocarbons from Yalamanchi et al. (2020).<sup>2</sup>
+### Example 2: Fit All Models
 
 ```bash
 python -m deltahf fit \
     -i deltahf/data/training_data.csv \
-    --model both \
+    --model all \
     --kfold 10 \
     --n-conformers 1 \
+    --cache-dir .xtb_cache \
     -o params.json
 ```
 
-This processes all 292 molecules through the pipeline (SMILES → RDKit conformers → xTB optimization), fits atom equivalents by least squares, and reports RMSD, maximum deviation, and 10-fold cross-validation error for both models:
-
-```
-103/103 molecules completed successfully
-
-4-parameter atom equivalents (kcal/mol):
-  C: -1350.394263
-  H: -314.769803
-  N: -1847.189318
-  O: -2512.025581
-  RMSD: 17.52 kcal/mol
-  Max deviation: 77.45 kcal/mol
-  CV error (10-fold): 325.99 (kcal/mol)^2
-
-7-parameter atom equivalents (kcal/mol):
-  C: -1364.507773
-  H: -308.435763
-  N: -1856.918408
-  O: -2518.577026
-  C_prime: -1355.652429
-  N_prime: -1843.470587
-  O_prime: -2510.955339
-  RMSD: 14.71 kcal/mol
-  Max deviation: 70.02 kcal/mol
-  CV error (10-fold): 262.58 (kcal/mol)^2
-```
+This processes all 314 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
 
 ### Example 3: Predict ΔHf° for New Molecules
 
@@ -172,15 +179,17 @@ For each molecule, deltahf performs the following steps:
 1. **SMILES parsing** — Convert SMILES to an RDKit mol object with explicit hydrogens
 2. **Conformer generation** — Generate 3D conformers via ETKDG and rank by MMFF94 energy
 3. **xTB optimization** — Optimize the lowest *n* conformers with GFN2-xTB
-4. **ΔHf° prediction** — Apply the atom equivalent formula using the lowest xTB energy
+4. **Connectivity check** — Verify the optimized geometry hasn't isomerized (atom connectivity preserved)
+5. **ΔHf° prediction** — Apply the atom equivalent formula using the lowest xTB energy
 
 ## Dependencies
 
 - [Python](https://www.python.org/) >= 3.10
 - [RDKit](https://www.rdkit.org/) — molecular representation, 3D embedding, ETKDG conformer generation
 - [xTB](https://github.com/grimme-lab/xtb) — GFN2 semi-empirical optimization (CLI)
-- [NumPy](https://numpy.org/) / [SciPy](https://scipy.org/) — numerical fitting
+- [NumPy](https://numpy.org/) — numerical fitting
 - [pandas](https://pandas.pydata.org/) — CSV I/O
+- [tqdm](https://tqdm.github.io/) — progress bars
 
 ## Testing
 

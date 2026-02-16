@@ -7,6 +7,12 @@ HARTREE_TO_KCAL = 627.5094740631
 
 PARAM_NAMES_4 = ["C", "H", "N", "O"]
 PARAM_NAMES_7 = ["C", "H", "N", "O", "C_prime", "N_prime", "O_prime"]
+PARAM_NAMES_HYBRID = ["C_sp3", "C_sp2", "C_sp", "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp"]
+PARAM_NAMES_EXTENDED = [
+    "C_sp3_3H", "C_sp3_2H", "C_sp3_1H", "C_sp3_0H",
+    "C_sp2_2H", "C_sp2_1H", "C_sp2_0H", "C_sp",
+    "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp",
+]
 
 
 def predict_dhf(u_kcal: float, atom_counts: dict[str, int], epsilon: dict[str, float]) -> float:
@@ -98,11 +104,18 @@ def kfold_cross_validation(
         )
 
     cv_error = float(np.mean([f["msd"] for f in fold_results]))
+    cv_rmsd = float(np.sqrt(cv_error))
     mean_epsilon = {name: float(np.mean([f["epsilon"][name] for f in fold_results])) for name in param_names}
+    std_epsilon = {
+        name: float(np.std([f["epsilon"][name] for f in fold_results], ddof=1))
+        for name in param_names
+    }
 
     return {
         "cv_error": cv_error,
+        "cv_rmsd": cv_rmsd,
         "mean_epsilon": mean_epsilon,
+        "std_epsilon": std_epsilon,
         "fold_results": fold_results,
     }
 
@@ -112,6 +125,27 @@ def rmsd(predicted: list[float], experimental: list[float]) -> float:
     return float(np.sqrt(np.mean((np.array(predicted) - np.array(experimental)) ** 2)))
 
 
+def mean_abs_deviation(predicted: list[float], experimental: list[float]) -> float:
+    """Mean absolute deviation."""
+    return float(np.mean(np.abs(np.array(predicted) - np.array(experimental))))
+
+
 def max_abs_deviation(predicted: list[float], experimental: list[float]) -> float:
     """Maximum absolute deviation."""
     return float(np.max(np.abs(np.array(predicted) - np.array(experimental))))
+
+
+def r_squared(predicted: list[float], experimental: list[float], p: int = 0) -> float:
+    """Coefficient of determination (adjusted R² if p > 0).
+
+    When p (number of fitted parameters) is provided, returns the adjusted R²:
+        R²_adj = 1 - (1 - R²) * (n - 1) / (n - p - 1)
+    """
+    exp = np.array(experimental)
+    n = len(exp)
+    ss_res = np.sum((np.array(predicted) - exp) ** 2)
+    ss_tot = np.sum((exp - np.mean(exp)) ** 2)
+    r2 = 1.0 - ss_res / ss_tot
+    if p > 0 and n > p + 1:
+        r2 = 1.0 - (1.0 - r2) * (n - 1) / (n - p - 1)
+    return float(r2)

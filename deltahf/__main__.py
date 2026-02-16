@@ -8,31 +8,106 @@ from pathlib import Path
 from deltahf.atom_equivalents import (
     PARAM_NAMES_4,
     PARAM_NAMES_7,
+    PARAM_NAMES_EXTENDED,
+    PARAM_NAMES_HYBRID,
     fit_atom_equivalents,
     kfold_cross_validation,
     max_abs_deviation,
+    mean_abs_deviation,
+    r_squared,
     rmsd,
 )
 from deltahf.pipeline import process_csv, process_molecule
 
+# Map model name -> (PARAM_NAMES, atom_counts field on MoleculeResult)
+MODEL_DEFS = {
+    "4param": (PARAM_NAMES_4, "atom_counts_4param"),
+    "7param": (PARAM_NAMES_7, "atom_counts_7param"),
+    "hybrid": (PARAM_NAMES_HYBRID, "atom_counts_hybrid"),
+    "extended": (PARAM_NAMES_EXTENDED, "atom_counts_extended"),
+}
+
+# Which models each --model choice expands to
+MODEL_GROUPS = {
+    "4param": ["4param"],
+    "7param": ["7param"],
+    "hybrid": ["hybrid"],
+    "extended": ["extended"],
+    "both": ["4param", "7param"],
+    "all": ["4param", "7param", "hybrid", "extended"],
+}
+
 BANNER = (
-    "\n"
-    r" ____  _  _  ____" "\n"
-    r"(    \/ )( \(  __)" "\n"
-    r" ) D () __ ( ) _)" "\n"
-    r"(____/\_)(_/(__)" "\n"
-    "  ~~ deltahf ~~\n"
+    r"    ____  _  _  ____" "\n"
+    r"   (    \/ )( \(  __)" "\n"
+    r"    ) D () __ ( ) _)" "\n"
+    r"   (____/\_)(_/(__)" "\n"
+    "     ~~ deltahf ~~\n"
 )
 
 CITATIONS = """\
-Data sources:
-  [1] Cawkwell, M. J.; Manner, V. W.; Kress, J. D.
-      J. Chem. Inf. Model. 2021, 61, 3337-3347
-      DOI: 10.1021/acs.jcim.1c00312
-  [2] Yalamanchi, K. K.; Monge-Palacios, M.; van Oudenhoven, V. C. O.;
-      Gao, X.; Sarathy, S. M.
-      J. Phys. Chem. A 2020, 124, 6270-6283
-      DOI: 10.1021/acs.jpca.0c02785"""
+   Data sources:
+      [1] Cawkwell, M. J.; Manner, V. W.; Kress, J. D. J. Chem. Inf. Model. 2021, 61, 3337-3347.
+          DOI: 10.1021/acs.jcim.1c00312
+      [2] Yalamanchi, K. K.; Monge-Palacios, M.; van Oudenhoven, V. C. O.; Gao, X.; Sarathy, S. M.
+          J. Phys. Chem. A 2020, 124, 6270-6283. DOI: 10.1021/acs.jpca.0c02785"""
+
+SEP = "   " + "\u2500" * 50
+
+
+def _print_model_results(counts, u_values, exp_dhf, param_names, kfold):
+    """Print fitting results for one model with formatted tables."""
+    totals = {k: sum(c.get(k, 0) for c in counts) for k in param_names}
+
+    # Drop parameters with zero counts (no training examples)
+    active_params = [k for k in param_names if totals[k] > 0]
+    dropped = [k for k in param_names if totals[k] == 0]
+
+    epsilon = fit_atom_equivalents(counts, u_values, exp_dhf, active_params)
+
+    predicted = [
+        u_values[j] - sum(counts[j].get(k, 0) * epsilon[k] for k in epsilon)
+        for j in range(len(u_values))
+    ]
+    cv = kfold_cross_validation(counts, u_values, exp_dhf, active_params, k=kfold)
+
+    n_params = len(active_params)
+    print()
+    print(SEP)
+    print(f"   {n_params}-parameter model ({len(counts)} molecules)")
+    print(SEP)
+
+    # Atom environment totals (only active)
+    env_parts = ", ".join(f"{k}={totals[k]}" for k in active_params)
+    print(f"   Atom environments: {env_parts}")
+    if dropped:
+        print(f"   Unused parameters (no examples): {', '.join(dropped)}")
+    print()
+
+    # Atom equivalents table
+    std_eps = cv["std_epsilon"]
+    pm = "\u00b1"
+    w = 50  # table width (matches SEP)
+    print("   Fitted atom equivalents:")
+    print(f"   {'Param':<14}{'Epsilon (kcal/mol)':>20}{'Std Err':>16}")
+    print(f"   {'─' * 14}{'─' * 20} {'─' * 15}")
+    for k, v in epsilon.items():
+        print(f"   {k:<14}{v:>20.6f}      {pm} {std_eps[k]:>8.4f}")
+    print()
+
+    # Statistics table
+    r2_label = "Adj. R\u00b2"
+    cv_label = f"CV RMSD ({kfold}-fold)"
+    print("   Fit statistics:")
+    print(f"   {'Metric':<{w - 5}}{'Value':>5}")
+    print(f"   {'─' * w}")
+    print(f"   {r2_label:<35}{r_squared(predicted, exp_dhf, p=len(param_names)):>15.4f}")
+    print(f"   {'RMSD':<35}{rmsd(predicted, exp_dhf):>15.2f} kcal/mol")
+    print(f"   {'MAD':<35}{mean_abs_deviation(predicted, exp_dhf):>15.2f} kcal/mol")
+    print(f"   {'Max deviation':<35}{max_abs_deviation(predicted, exp_dhf):>15.2f} kcal/mol")
+    print(f"   {cv_label:<35}{cv['cv_rmsd']:>15.2f} kcal/mol")
+
+    return epsilon, predicted
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,7 +120,9 @@ def build_parser() -> argparse.ArgumentParser:
     # --- fit subcommand ---
     fit_parser = subparsers.add_parser("fit", help="Fit atom equivalent energies to training data")
     fit_parser.add_argument("--input", "-i", required=True, help="CSV with smiles, exp_dhf_kcal_mol columns")
-    fit_parser.add_argument("--model", choices=["4param", "7param", "both"], default="both")
+    fit_parser.add_argument(
+        "--model", choices=["4param", "7param", "hybrid", "extended", "both", "all"], default="both",
+    )
     fit_parser.add_argument("--kfold", type=int, default=10, help="Number of CV folds")
     fit_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
     fit_parser.add_argument("--output", "-o", help="Output JSON file for fitted epsilon values")
@@ -54,17 +131,33 @@ def build_parser() -> argparse.ArgumentParser:
         "--use-xtb-wbos", action="store_true",
         help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
     )
+    fit_parser.add_argument(
+        "--cache-dir", type=str, default=None,
+        help="Directory for caching xTB results (enables restart capability)",
+    )
+    fit_parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Print per-molecule details instead of a progress bar",
+    )
 
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
     pred_parser.add_argument("--input", "-i", required=True, help="CSV with smiles column")
     pred_parser.add_argument("--epsilon", required=True, help="JSON file with fitted epsilon values")
-    pred_parser.add_argument("--model", choices=["4param", "7param"], default="4param")
+    pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "extended"], default="4param")
     pred_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
     pred_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
         help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
+    )
+    pred_parser.add_argument(
+        "--cache-dir", type=str, default=None,
+        help="Directory for caching xTB results (enables restart capability)",
+    )
+    pred_parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Print per-molecule details instead of a progress bar",
     )
 
     return parser
@@ -79,40 +172,83 @@ def cmd_fit(args):
     try:
         find_xtb_binary()
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        print(f"   Error: {e}")
         sys.exit(1)
 
     print(CITATIONS)
     print()
 
     df = pd.read_csv(args.input)
-    print(f"Loaded {len(df)} molecules from {args.input}")
+    print(f"   Loaded {len(df)} molecules from {args.input}")
     if args.use_xtb_wbos:
-        print("Using xTB Wiberg bond orders for 7-param atom classification")
+        print("   Using xTB Wiberg bond orders for 7-param atom classification")
+
+    cache = None
+    if args.cache_dir:
+        from deltahf.cache import ResultCache
+
+        cache = ResultCache(Path(args.cache_dir))
+        print(f"   Using cache directory: {args.cache_dir}")
+        if args.use_xtb_wbos:
+            print("      Note: caching disabled when --use-xtb-wbos is set")
+            cache = None
 
     # Process all molecules to get xTB energies
-    print("Running xTB optimizations...")
+    print("   Running xTB optimizations...")
     results = []
-    for idx, row in df.iterrows():
-        smiles = row["smiles"]
-        name = row.get("name", f"mol_{idx}")
-        print(f"  [{idx + 1}/{len(df)}] {name}: {smiles}")
-        result = process_molecule(smiles, n_conformers=args.n_conformers, name=name, use_xtb_wbos=args.use_xtb_wbos)
-        if result.error:
-            print(f"    ERROR: {result.error}")
-        else:
-            print(f"    xTB energy: {result.xtb_energy:.6f} Eh")
-        results.append(result)
+    errors = []
+    warnings = []
+
+    if args.verbose:
+        for idx, row in df.iterrows():
+            smiles = row["smiles"]
+            name = row.get("name", f"mol_{idx}")
+            print(f"      [{idx + 1}/{len(df)}] {name}: {smiles}")
+            result = process_molecule(
+                smiles, n_conformers=args.n_conformers, name=name,
+                use_xtb_wbos=args.use_xtb_wbos, cache=cache,
+            )
+            if result.error:
+                print(f"         ERROR: {result.error}")
+            else:
+                print(f"         xTB energy: {result.xtb_energy:.6f} Eh")
+                if result.n_conformers_isomerized > 0:
+                    print(f"         WARNING: {result.n_conformers_isomerized} conformer(s) isomerized")
+            results.append(result)
+    else:
+        from tqdm import tqdm
+
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc="   Molecules"):
+            smiles = row["smiles"]
+            name = row.get("name", f"mol_{idx}")
+            result = process_molecule(
+                smiles, n_conformers=args.n_conformers, name=name,
+                use_xtb_wbos=args.use_xtb_wbos, cache=cache,
+            )
+            if result.error:
+                errors.append(f"{name}: {result.error}")
+            elif result.n_conformers_isomerized > 0:
+                warnings.append(f"{name}: {result.n_conformers_isomerized} conformer(s) isomerized")
+            results.append(result)
+
+        if errors:
+            print(f"\n   {len(errors)} molecule(s) failed:")
+            for msg in errors:
+                print(f"      {msg}")
+        if warnings:
+            print(f"\n   {len(warnings)} molecule(s) had isomerized conformers:")
+            for msg in warnings:
+                print(f"      {msg}")
 
     # Filter successful results
     successful = [(i, r) for i, r in enumerate(results) if r.error is None]
-    print(f"\n{len(successful)}/{len(results)} molecules completed successfully")
+    print(f"\n   {len(successful)}/{len(results)} molecules completed successfully")
 
     if not successful:
         failed = [(i, r) for i, r in enumerate(results) if r.error is not None]
-        print("\nAll molecules failed. First error:")
-        print(f"  {df.iloc[failed[0][0]]['name']}: {failed[0][1].error}")
-        print("\nIs xTB on your PATH? Try: conda activate deltahf")
+        print("\n   All molecules failed. First error:")
+        print(f"      {df.iloc[failed[0][0]]['name']}: {failed[0][1].error}")
+        print("\n   Is xTB on your PATH? Try: conda activate deltahf")
         sys.exit(1)
 
     indices = [i for i, _ in successful]
@@ -120,47 +256,23 @@ def cmd_fit(args):
     exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
 
     output = {}
+    predicted = {}
+    models_to_run = MODEL_GROUPS[args.model]
 
-    if args.model in ("4param", "both"):
-        counts_4 = [results[i].atom_counts_4param for i in indices]
-        epsilon_4 = fit_atom_equivalents(counts_4, u_values, exp_dhf, PARAM_NAMES_4)
-        print("\n4-parameter atom equivalents (kcal/mol):")
-        for k, v in epsilon_4.items():
-            print(f"  {k}: {v:.6f}")
+    for model_name in models_to_run:
+        param_names, counts_attr = MODEL_DEFS[model_name]
+        counts = [getattr(results[i], counts_attr) for i in indices]
+        eps, pred = _print_model_results(counts, u_values, exp_dhf, param_names, args.kfold)
+        output[model_name] = eps
+        predicted[model_name] = pred
 
-        predicted_4 = [
-            u_values[j] - sum(counts_4[j].get(k, 0) * epsilon_4[k] for k in epsilon_4)
-            for j in range(len(u_values))
-        ]
-        print(f"  RMSD: {rmsd(predicted_4, exp_dhf):.2f} kcal/mol")
-        print(f"  Max deviation: {max_abs_deviation(predicted_4, exp_dhf):.2f} kcal/mol")
-
-        cv_4 = kfold_cross_validation(counts_4, u_values, exp_dhf, PARAM_NAMES_4, k=args.kfold)
-        print(f"  CV error ({args.kfold}-fold): {cv_4['cv_error']:.2f} (kcal/mol)^2")
-        output["4param"] = epsilon_4
-
-    if args.model in ("7param", "both"):
-        counts_7 = [results[i].atom_counts_7param for i in indices]
-        epsilon_7 = fit_atom_equivalents(counts_7, u_values, exp_dhf, PARAM_NAMES_7)
-        print("\n7-parameter atom equivalents (kcal/mol):")
-        for k, v in epsilon_7.items():
-            print(f"  {k}: {v:.6f}")
-
-        predicted_7 = [
-            u_values[j] - sum(counts_7[j].get(k, 0) * epsilon_7[k] for k in epsilon_7)
-            for j in range(len(u_values))
-        ]
-        print(f"  RMSD: {rmsd(predicted_7, exp_dhf):.2f} kcal/mol")
-        print(f"  Max deviation: {max_abs_deviation(predicted_7, exp_dhf):.2f} kcal/mol")
-
-        cv_7 = kfold_cross_validation(counts_7, u_values, exp_dhf, PARAM_NAMES_7, k=args.kfold)
-        print(f"  CV error ({args.kfold}-fold): {cv_7['cv_error']:.2f} (kcal/mol)^2")
-        output["7param"] = epsilon_7
+    print()
+    print(SEP)
 
     if args.output:
         with open(args.output, "w") as f:
             json.dump(output, f, indent=2)
-        print(f"\nFitted parameters saved to {args.output}")
+        print(f"   Fitted parameters saved to {args.output}")
 
     if args.csv:
         results_df = df.copy()
@@ -172,24 +284,18 @@ def cmd_fit(args):
         ]
 
         # Map predictions back to full DataFrame (None for failed molecules)
-        pred_4_full = [None] * len(df)
-        pred_7_full = [None] * len(df)
-        for j, idx in enumerate(indices):
-            if args.model in ("4param", "both"):
-                pred_4_full[idx] = predicted_4[j]
-            if args.model in ("7param", "both"):
-                pred_7_full[idx] = predicted_7[j]
-
-        if args.model in ("4param", "both"):
-            results_df["pred_dhf_4param"] = pred_4_full
-            results_df["error_4param"] = results_df["pred_dhf_4param"] - results_df["exp_dhf_kcal_mol"]
-        if args.model in ("7param", "both"):
-            results_df["pred_dhf_7param"] = pred_7_full
-            results_df["error_7param"] = results_df["pred_dhf_7param"] - results_df["exp_dhf_kcal_mol"]
+        for model_name in models_to_run:
+            pred_full = [None] * len(df)
+            for j, idx in enumerate(indices):
+                pred_full[idx] = predicted[model_name][j]
+            results_df[f"pred_dhf_{model_name}"] = pred_full
+            results_df[f"error_{model_name}"] = (
+                results_df[f"pred_dhf_{model_name}"] - results_df["exp_dhf_kcal_mol"]
+            )
 
         results_df["error"] = [results[i].error for i in range(len(df))]
         results_df.to_csv(args.csv, index=False)
-        print(f"Results CSV saved to {args.csv}")
+        print(f"   Results CSV saved to {args.csv}")
 
 
 def cmd_predict(args):
@@ -199,7 +305,7 @@ def cmd_predict(args):
     try:
         find_xtb_binary()
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        print(f"   Error: {e}")
         sys.exit(1)
 
     with open(args.epsilon) as f:
@@ -207,21 +313,37 @@ def cmd_predict(args):
 
     epsilon = epsilon_data.get(args.model, epsilon_data)
 
+    cache = None
+    if args.cache_dir:
+        from deltahf.cache import ResultCache
+
+        cache = ResultCache(Path(args.cache_dir))
+        print(f"   Using cache directory: {args.cache_dir}")
+        if args.use_xtb_wbos:
+            print("      Note: caching disabled when --use-xtb-wbos is set")
+            cache = None
+
+    epsilon_kwargs = {f"epsilon_{args.model}": epsilon}
     results_df = process_csv(
         Path(args.input),
         n_conformers=args.n_conformers,
-        epsilon_4param=epsilon if args.model == "4param" else None,
-        epsilon_7param=epsilon if args.model == "7param" else None,
         output_path=Path(args.output) if args.output else None,
         use_xtb_wbos=args.use_xtb_wbos,
+        cache=cache,
+        verbose=args.verbose,
+        **epsilon_kwargs,
     )
 
     print(results_df.to_string(index=False))
     if args.output:
-        print(f"\nResults saved to {args.output}")
+        print(f"\n   Results saved to {args.output}")
 
 
 def main(argv=None):
+    from rdkit import RDLogger
+
+    RDLogger.logger().setLevel(RDLogger.ERROR)
+
     parser = build_parser()
     args = parser.parse_args(argv)
 

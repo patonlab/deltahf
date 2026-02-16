@@ -15,7 +15,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from deltahf.smiles import classify_atoms_7param, count_atoms
+from deltahf.atom_equivalents import PARAM_NAMES_EXTENDED, PARAM_NAMES_HYBRID
+from deltahf.smiles import classify_atoms_7param, classify_atoms_extended, classify_atoms_hybrid, count_atoms
 
 DATA_PATH = Path(__file__).parent / "data" / "cawkwell_si_atom_counts.csv"
 
@@ -116,3 +117,42 @@ class TestAtomCountSummary:
             if classify_atoms_7param(row["smiles"]) == expected:
                 matches += 1
         assert matches == 313, f"{matches} molecules match 7-param (expected 313)"
+
+
+class TestAtomCountsHybrid:
+    """Smoke tests: hybrid classification should not crash on any SI molecule."""
+
+    @pytest.mark.parametrize(
+        "mol_id, name, smiles, row",
+        _TEST_PARAMS,
+        ids=[f"{p[0]}_{p[1]}" for p in _TEST_PARAMS],
+    )
+    def test_classify_no_crash(self, mol_id, name, smiles, row):
+        counts = classify_atoms_hybrid(smiles)
+        assert set(counts.keys()) == set(PARAM_NAMES_HYBRID)
+        # Element totals should match 4-param
+        c4 = count_atoms(smiles)
+        assert counts["C_sp3"] + counts["C_sp2"] + counts["C_sp"] == c4["C"]
+        assert counts["H"] == c4["H"]
+        assert counts["N_sp3"] + counts["N_sp2"] + counts["N_sp"] == c4["N"]
+        assert counts["O_sp3"] + counts["O_sp2"] + counts["O_sp"] == c4["O"]
+
+
+class TestAtomCountsExtended:
+    """Smoke tests: extended classification should not crash on any SI molecule."""
+
+    @pytest.mark.parametrize(
+        "mol_id, name, smiles, row",
+        _TEST_PARAMS,
+        ids=[f"{p[0]}_{p[1]}" for p in _TEST_PARAMS],
+    )
+    def test_classify_no_crash(self, mol_id, name, smiles, row):
+        counts = classify_atoms_extended(smiles)
+        assert set(counts.keys()) == set(PARAM_NAMES_EXTENDED)
+        # Carbon totals should match 4-param
+        c4 = count_atoms(smiles)
+        c_total = sum(v for k, v in counts.items() if k.startswith("C_"))
+        assert c_total == c4["C"]
+        assert counts["H"] == c4["H"]
+        assert counts["N_sp3"] + counts["N_sp2"] + counts["N_sp"] == c4["N"]
+        assert counts["O_sp3"] + counts["O_sp2"] + counts["O_sp"] == c4["O"]

@@ -2,7 +2,14 @@
 
 import pytest
 
-from deltahf.smiles import classify_atoms_7param, classify_atoms_7param_from_wbo, count_atoms, smiles_to_mol
+from deltahf.smiles import (
+    classify_atoms_7param,
+    classify_atoms_7param_from_wbo,
+    classify_atoms_extended,
+    classify_atoms_hybrid,
+    count_atoms,
+    smiles_to_mol,
+)
 
 
 class TestSmilesToMol:
@@ -193,3 +200,181 @@ class TestClassifyAtoms7ParamFromWbo:
         counts = classify_atoms_7param_from_wbo("C", wbos)
         expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime"}
         assert set(counts.keys()) == expected_keys
+
+
+class TestClassifyAtomsHybrid:
+    """Tests for 9-parameter hybridization-based classification."""
+
+    def test_methane(self):
+        counts = classify_atoms_hybrid("C")
+        assert counts["C_sp3"] == 1
+        assert counts["H"] == 4
+
+    def test_ethane(self):
+        counts = classify_atoms_hybrid("CC")
+        assert counts["C_sp3"] == 2
+        assert counts["C_sp2"] == 0
+        assert counts["H"] == 6
+
+    def test_ethene(self):
+        counts = classify_atoms_hybrid("C=C")
+        assert counts["C_sp2"] == 2
+        assert counts["C_sp3"] == 0
+        assert counts["H"] == 4
+
+    def test_ethyne(self):
+        counts = classify_atoms_hybrid("C#C")
+        assert counts["C_sp"] == 2
+        assert counts["H"] == 2
+
+    def test_benzene(self):
+        counts = classify_atoms_hybrid("c1ccccc1")
+        assert counts["C_sp2"] == 6
+        assert counts["H"] == 6
+
+    def test_hydrogen_cyanide(self):
+        counts = classify_atoms_hybrid("C#N")
+        assert counts["C_sp"] == 1
+        assert counts["N_sp"] == 1
+        assert counts["H"] == 1
+
+    def test_water(self):
+        counts = classify_atoms_hybrid("O")
+        assert counts["O_sp3"] == 1
+        assert counts["H"] == 2
+
+    def test_formaldehyde(self):
+        counts = classify_atoms_hybrid("C=O")
+        assert counts["C_sp2"] == 1
+        assert counts["O_sp2"] == 1
+        assert counts["H"] == 2
+
+    def test_ethanol(self):
+        counts = classify_atoms_hybrid("CCO")
+        assert counts["C_sp3"] == 2
+        assert counts["O_sp3"] == 1
+        assert counts["H"] == 6
+
+    def test_ammonia(self):
+        counts = classify_atoms_hybrid("N")
+        assert counts["N_sp3"] == 1
+        assert counts["H"] == 3
+
+    def test_nitromethane(self):
+        """CH3-NO2: methyl C is sp3, N is sp2, both O are sp2."""
+        counts = classify_atoms_hybrid("C[N+](=O)[O-]")
+        assert counts["C_sp3"] == 1
+        assert counts["N_sp2"] == 1
+        assert counts["O_sp2"] == 2
+        assert counts["H"] == 3
+
+    def test_tnt(self):
+        """TNT: 6 aromatic sp2 C, 1 methyl sp3 C, 3 sp2 N, 6 sp2 O."""
+        counts = classify_atoms_hybrid("Cc1c(cc(cc1[N+](=O)[O-])[N+](=O)[O-])[N+](=O)[O-]")
+        assert counts["C_sp2"] == 6
+        assert counts["C_sp3"] == 1
+        assert counts["N_sp2"] == 3
+        assert counts["O_sp2"] == 6
+
+    def test_returns_all_ten_keys(self):
+        counts = classify_atoms_hybrid("C")
+        expected = {"C_sp3", "C_sp2", "C_sp", "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp"}
+        assert set(counts.keys()) == expected
+
+    def test_total_atoms_match_4param(self):
+        """Hybrid counts should sum to the same totals as 4-param for each element."""
+        for smiles in ["C", "CCO", "c1ccccc1", "C#N", "C[N+](=O)[O-]"]:
+            c4 = count_atoms(smiles)
+            ch = classify_atoms_hybrid(smiles)
+            assert ch["C_sp3"] + ch["C_sp2"] + ch["C_sp"] == c4["C"]
+            assert ch["H"] == c4["H"]
+            assert ch["N_sp3"] + ch["N_sp2"] + ch["N_sp"] == c4["N"]
+            assert ch["O_sp3"] + ch["O_sp2"] + ch["O_sp"] == c4["O"]
+
+
+class TestClassifyAtomsExtended:
+    """Tests for 13-parameter extended classification (hybridization + H-count for C)."""
+
+    def test_methane(self):
+        """CH4: sp3 carbon with 4 H, capped to C_sp3_3H."""
+        counts = classify_atoms_extended("C")
+        assert counts["C_sp3_3H"] == 1
+        assert counts["H"] == 4
+
+    def test_ethane(self):
+        """C2H6: two sp3 CH3 groups."""
+        counts = classify_atoms_extended("CC")
+        assert counts["C_sp3_3H"] == 2
+        assert counts["H"] == 6
+
+    def test_propane(self):
+        """C3H8: two methyl sp3 + one methylene sp3."""
+        counts = classify_atoms_extended("CCC")
+        assert counts["C_sp3_3H"] == 2
+        assert counts["C_sp3_2H"] == 1
+        assert counts["H"] == 8
+
+    def test_isobutane(self):
+        """CH(CH3)3: three methyl + one methine sp3."""
+        counts = classify_atoms_extended("CC(C)C")
+        assert counts["C_sp3_3H"] == 3
+        assert counts["C_sp3_1H"] == 1
+        assert counts["H"] == 10
+
+    def test_neopentane(self):
+        """C(CH3)4: four methyl + one quaternary sp3."""
+        counts = classify_atoms_extended("CC(C)(C)C")
+        assert counts["C_sp3_3H"] == 4
+        assert counts["C_sp3_0H"] == 1
+        assert counts["H"] == 12
+
+    def test_benzene(self):
+        """C6H6: six sp2 CH."""
+        counts = classify_atoms_extended("c1ccccc1")
+        assert counts["C_sp2_1H"] == 6
+        assert counts["H"] == 6
+
+    def test_toluene(self):
+        """Toluene: 5 sp2 CH, 1 sp2 C(no H), 1 sp3 CH3."""
+        counts = classify_atoms_extended("Cc1ccccc1")
+        assert counts["C_sp3_3H"] == 1
+        assert counts["C_sp2_1H"] == 5
+        assert counts["C_sp2_0H"] == 1
+
+    def test_formaldehyde(self):
+        """CH2O: sp2 C with 2H → C_sp2_2H."""
+        counts = classify_atoms_extended("C=O")
+        assert counts["C_sp2_2H"] == 1
+        assert counts["O_sp2"] == 1
+        assert counts["H"] == 2
+
+    def test_acetylene(self):
+        """HC≡CH: two sp carbons."""
+        counts = classify_atoms_extended("C#C")
+        assert counts["C_sp"] == 2
+        assert counts["H"] == 2
+
+    def test_water(self):
+        counts = classify_atoms_extended("O")
+        assert counts["O_sp3"] == 1
+        assert counts["H"] == 2
+
+    def test_returns_all_fifteen_keys(self):
+        counts = classify_atoms_extended("C")
+        expected = {
+            "C_sp3_3H", "C_sp3_2H", "C_sp3_1H", "C_sp3_0H",
+            "C_sp2_2H", "C_sp2_1H", "C_sp2_0H", "C_sp",
+            "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp",
+        }
+        assert set(counts.keys()) == expected
+
+    def test_total_carbon_matches_4param(self):
+        """Extended C counts should sum to the same total as 4-param."""
+        for smiles in ["C", "CCC", "CC(C)C", "c1ccccc1", "Cc1ccccc1"]:
+            c4 = count_atoms(smiles)
+            ce = classify_atoms_extended(smiles)
+            c_total = (
+                ce["C_sp3_3H"] + ce["C_sp3_2H"] + ce["C_sp3_1H"] + ce["C_sp3_0H"]
+                + ce["C_sp2_2H"] + ce["C_sp2_1H"] + ce["C_sp2_0H"] + ce["C_sp"]
+            )
+            assert c_total == c4["C"]

@@ -34,6 +34,10 @@ xtbopt.xyz
 *.xlsx
 TODO
 
+# Claude Code
+CLAUDE.md
+
 # Run outputs
 params.json
 fit_results.csv
+.xtb_cache/cache.json
