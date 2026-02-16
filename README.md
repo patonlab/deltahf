@@ -13,7 +13,9 @@ The core equation is:
 ΔHf° = u_xtb − Σ(nl × εl)
 ```
 
-where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy. Optionally, `u_xtb` can be replaced with a refined `u_gxtb` single-point energy using the `--use-gxtb` flag.
+where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy.
+
+**Optional gxtb energies:** The `--use-gxtb` flag enables gxtb (wB97M-V/def2-TZVPPD) single-point energies. **CRITICAL:** gxtb and xTB energies are on completely different scales (~10-17x difference) and **must never be mixed**. If you fit with `--use-gxtb`, you **must** also predict with `--use-gxtb`. See [GXTB_USAGE.md](GXTB_USAGE.md) for details.
 
 ### Atom Equivalent Models
 
@@ -71,7 +73,7 @@ python -m deltahf [fit|predict] [options]
 Fit atom equivalent energies to a training set of molecules with known experimental ΔHf° values.
 
 ```bash
-python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 5 -o params.json
+python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 1 -o params.json
 ```
 
 | Option | Description | Default |
@@ -79,12 +81,12 @@ python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 5 -o
 | `--input, -i` | CSV file with `smiles` and `exp_dhf_kcal_mol` columns (required). | — |
 | `--model` | Which model(s) to fit: `4param`, `7param`, `hybrid`, `extended`, `both`, or `all`. | `both` |
 | `--kfold` | Number of cross-validation folds. | `10` |
-| `--n-conformers` | Number of lowest-energy RDKit conformers to optimize with xTB. | `5` |
+| `--n-conformers` | Number of lowest-energy RDKit conformers to optimize with xTB. | `1` |
 | `--output, -o` | Output JSON file for fitted epsilon values. | — |
 | `--csv` | Output CSV with training data and per-molecule predictions. | — |
 | `--use-xtb-wbos` | Use xTB Wiberg bond orders (instead of RDKit) for 7-param classification. | — |
-| `--use-gxtb` | Use gxtb single-point energies after xTB optimization (requires gxtb binary). | — |
-| `--cache-dir` | Directory for caching xTB results (enables restart capability). | — |
+| `--use-gxtb` | Use gxtb energies (wB97M-V/def2-TZVPPD). **WARNING:** Must use consistently for fit AND predict! See [GXTB_USAGE.md](GXTB_USAGE.md). | — |
+| `--cache-dir` | Directory for caching results (automatically suffixed with `_xtb` or `_gxtb`). | — |
 | `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
 
 ### Subcommand: `predict`
@@ -92,7 +94,7 @@ python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 5 -o
 Predict ΔHf° for new molecules using previously fitted atom equivalent energies.
 
 ```bash
-python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param --n-conformers 5 -o results.csv
+python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param --n-conformers 1 -o results.csv
 ```
 
 | Option | Description | Default |
@@ -100,10 +102,10 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 | `--input, -i` | CSV file with a `smiles` column (required). | — |
 | `--epsilon` | JSON file with fitted atom equivalent energies (uses defaults from `params/` if not specified). | Default params |
 | `--model` | Which model to use: `4param`, `7param`, `hybrid`, or `extended`. | `4param` |
-| `--n-conformers` | Number of conformers to optimize with xTB. | `5` |
+| `--n-conformers` | Number of conformers to optimize with xTB. | `1` |
 | `--output, -o` | Output CSV with predicted ΔHf° values. | — |
-| `--use-gxtb` | Use gxtb single-point energies after xTB optimization (requires gxtb binary). | — |
-| `--cache-dir` | Directory for caching xTB results. | — |
+| `--use-gxtb` | Use gxtb energies. **Must match the method used in fit!** Automatically validated against parameter file metadata. | — |
+| `--cache-dir` | Directory for caching results (automatically suffixed with `_xtb` or `_gxtb`). | — |
 | `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
 
 ## Training Data
@@ -176,6 +178,8 @@ python -m deltahf predict \
 
 ## Benchmarking
 
+### Running Benchmarks
+
 `benchmark.py` measures how the number of conformers affects model accuracy and wall-clock time:
 
 ```bash
@@ -186,7 +190,46 @@ python benchmark.py
 python benchmark.py --use-gxtb
 ```
 
-This runs the full fitting workflow at `n_conformers` = 1, 3, 5, timing each run and reporting Adj. R², RMSD, MAD, max deviation, and CV RMSD for all four models. Results are saved to `benchmark_results.csv`. xTB results are cached per `n_conformers` in `.benchmark_cache/`, so re-runs skip the expensive optimization step.
+This runs the full fitting workflow at `n_conformers` = 1, 3, 5, timing each run and reporting Adj. R², RMSD, MAD, max deviation, and CV RMSD for all four models. xTB results are cached per `n_conformers` in `.benchmark_cache/`, so re-runs skip the expensive optimization step.
+
+### Key Findings
+
+Benchmarks on the 314-molecule training set reveal two important insights:
+
+1. **Number of conformers has minimal impact on accuracy** — Increasing from 1 to 5 conformers provides essentially no improvement in predictive accuracy, while increasing computational cost linearly.
+
+2. **gxtb single-point energies significantly improve accuracy** — Computing gxtb (wB97M-V/def2-TZVPPD) single-point energies on xTB-optimized geometries reduces RMSD by ~50% with only ~14% additional computational cost.
+
+### Results Summary
+
+**xTB energies (baseline):**
+
+| n_conformers | Model | RMSD (kcal/mol) | Adj. R² | Time (s) |
+|--------------|-------|-----------------|---------|----------|
+| 1 | 4param | 11.09 | 0.912 | 68 |
+| 1 | 7param | 8.33 | 0.950 | 68 |
+| 1 | hybrid | 7.49 | 0.959 | 68 |
+| 1 | extended | **7.36** | **0.960** | 68 |
+| 3 | extended | 7.38 | 0.960 | 153 |
+| 5 | extended | 7.46 | 0.959 | 236 |
+
+**gxtb energies (refined):**
+
+| n_conformers | Model | RMSD (kcal/mol) | Adj. R² | Time (s) |
+|--------------|-------|-----------------|---------|----------|
+| 1 | 4param | 4.01 | 0.989 | 78 |
+| 1 | 7param | 3.40 | 0.992 | 78 |
+| 1 | hybrid | 3.54 | 0.991 | 78 |
+| 1 | extended | **3.43** | **0.991** | 78 |
+| 3 | extended | 3.43 | 0.991 | 161 |
+| 5 | extended | 3.43 | 0.991 | 242 |
+
+**Recommendations:**
+- Use `--n-conformers 1` for both fitting and prediction (now the default)
+- Use `--use-gxtb` for improved accuracy if gxtb is available
+- The extended model provides the best performance, but 7param is nearly as good with fewer parameters
+
+Complete benchmark results: [xtb_benchmark_results.md](xtb_benchmark_results.md) | [gxtb_benchmark_results.md](gxtb_benchmark_results.md)
 
 ## Pipeline
 
@@ -210,7 +253,7 @@ For each molecule, deltahf performs the following steps:
 - [tqdm](https://tqdm.github.io/) — progress bars
 
 **Optional:**
-- [gxtb](https://github.com/grimme-lab/gxtb) — GFN-xTB single-point energies for refined predictions (not available via pip/conda; must be compiled from source)
+- [gxtb](https://github.com/grimme-lab/gxtb) — Higher-level DFT energies (wB97M-V/def2-TZVPPD). **Must be installed manually from source** (not available via pip/conda). **WARNING:** gxtb and xTB energies are on completely different scales and cannot be mixed - see [GXTB_USAGE.md](GXTB_USAGE.md) for proper usage.
 
 ## Testing
 

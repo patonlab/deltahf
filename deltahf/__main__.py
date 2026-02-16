@@ -124,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--model", choices=["4param", "7param", "hybrid", "extended", "both", "all"], default="both",
     )
     fit_parser.add_argument("--kfold", type=int, default=10, help="Number of CV folds")
-    fit_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
+    fit_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
     fit_parser.add_argument("--output", "-o", help="Output JSON file for fitted epsilon values")
     fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
     fit_parser.add_argument(
@@ -133,7 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fit_parser.add_argument(
         "--use-gxtb", action="store_true",
-        help="Use gxtb single-point energies after xtb optimization (requires gxtb binary)",
+        help="Use gxtb single-point energies (wB97M-V/def2-TZVPPD). WARNING: Do not mix with xTB workflows!",
     )
     fit_parser.add_argument(
         "--cache-dir", type=str, default=None,
@@ -149,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     pred_parser.add_argument("--input", "-i", required=True, help="CSV with smiles column")
     pred_parser.add_argument("--epsilon", required=False, help="JSON file with fitted epsilon values (uses defaults if not specified)")
     pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "extended"], default="4param")
-    pred_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
+    pred_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
     pred_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
@@ -157,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pred_parser.add_argument(
         "--use-gxtb", action="store_true",
-        help="Use gxtb single-point energies after xtb optimization (requires gxtb binary)",
+        help="Use gxtb single-point energies (wB97M-V/def2-TZVPPD). Must match method used in fit!",
     )
     pred_parser.add_argument(
         "--cache-dir", type=str, default=None,
@@ -183,6 +183,16 @@ def cmd_fit(args):
         print(f"   Error: {e}")
         sys.exit(1)
 
+    if args.use_gxtb:
+        from deltahf.xtb import find_gxtb_binary
+        if find_gxtb_binary() is None:
+            print("   Error: gxtb binary not found on PATH.")
+            print("   gxtb must be installed manually from source (not available via conda/pip).")
+            sys.exit(1)
+        print("   Using gxtb energies (wB97M-V/def2-TZVPPD approximation)")
+        print("   WARNING: gxtb and xTB energies are on different scales - do not mix workflows!")
+        print()
+
     print(CITATIONS)
     print()
 
@@ -195,8 +205,14 @@ def cmd_fit(args):
     if args.cache_dir:
         from deltahf.cache import ResultCache
 
-        cache = ResultCache(Path(args.cache_dir))
-        print(f"   Using cache directory: {args.cache_dir}")
+        # Append method suffix to cache directory to keep xTB and gxtb separate
+        cache_path = Path(args.cache_dir)
+        method_suffix = "_gxtb" if args.use_gxtb else "_xtb"
+        if not cache_path.name.endswith(method_suffix):
+            cache_path = cache_path.parent / (cache_path.name + method_suffix)
+
+        cache = ResultCache(cache_path)
+        print(f"   Using cache directory: {cache_path}")
         if args.use_xtb_wbos:
             print("      Note: caching disabled when --use-xtb-wbos is set")
             cache = None
@@ -280,6 +296,13 @@ def cmd_fit(args):
         output[model_name] = eps
         predicted[model_name] = pred
 
+    # Add metadata to track which method was used for fitting
+    output["_metadata"] = {
+        "method": "gxtb" if args.use_gxtb else "xtb",
+        "n_conformers": args.n_conformers,
+        "n_molecules": len(indices),
+    }
+
     print()
     print(SEP)
 
@@ -287,6 +310,7 @@ def cmd_fit(args):
         with open(args.output, "w") as f:
             json.dump(output, f, indent=2)
         print(f"   Fitted parameters saved to {args.output}")
+        print(f"   Method: {'gxtb' if args.use_gxtb else 'xtb'}")
 
     if args.csv:
         results_df = df.copy()
@@ -322,6 +346,13 @@ def cmd_predict(args):
         print(f"   Error: {e}")
         sys.exit(1)
 
+    if args.use_gxtb:
+        from deltahf.xtb import find_gxtb_binary
+        if find_gxtb_binary() is None:
+            print("   Error: gxtb binary not found on PATH.")
+            print("   gxtb must be installed manually from source (not available via conda/pip).")
+            sys.exit(1)
+
     # Determine which epsilon file to use
     if args.epsilon:
         epsilon_file = args.epsilon
@@ -329,9 +360,9 @@ def cmd_predict(args):
         # Use default parameters from params directory
         params_dir = Path(__file__).parent.parent / "params"
         if args.use_gxtb:
-            epsilon_file = params_dir / "gxtb_params.json"
+            epsilon_file = params_dir / "params_gxtb.json"
         else:
-            epsilon_file = params_dir / "xtb_params.json"
+            epsilon_file = params_dir / "params_xtb.json"
 
         if not epsilon_file.exists():
             print(f"   Error: Default parameter file not found: {epsilon_file}")
@@ -343,14 +374,35 @@ def cmd_predict(args):
     with open(epsilon_file) as f:
         epsilon_data = json.load(f)
 
+    # Check for method mismatch
+    metadata = epsilon_data.get("_metadata", {})
+    param_method = metadata.get("method", "xtb")  # Default to xtb for old parameter files
+    current_method = "gxtb" if args.use_gxtb else "xtb"
+
+    if param_method != current_method:
+        print(f"\n   WARNING: Method mismatch detected!")
+        print(f"   Parameters were fitted using: {param_method}")
+        print(f"   You are predicting using: {current_method}")
+        print(f"   This will produce incorrect results - energies are on different scales!")
+        print(f"\n   Either:")
+        print(f"     - Use {'--use-gxtb' if param_method == 'gxtb' else 'without --use-gxtb'} to match the fitting method")
+        print(f"     - Refit parameters using {current_method}\n")
+        sys.exit(1)
+
     epsilon = epsilon_data.get(args.model, epsilon_data)
 
     cache = None
     if args.cache_dir:
         from deltahf.cache import ResultCache
 
-        cache = ResultCache(Path(args.cache_dir))
-        print(f"   Using cache directory: {args.cache_dir}")
+        # Append method suffix to cache directory to keep xTB and gxtb separate
+        cache_path = Path(args.cache_dir)
+        method_suffix = "_gxtb" if args.use_gxtb else "_xtb"
+        if not cache_path.name.endswith(method_suffix):
+            cache_path = cache_path.parent / (cache_path.name + method_suffix)
+
+        cache = ResultCache(cache_path)
+        print(f"   Using cache directory: {cache_path}")
         if args.use_xtb_wbos:
             print("      Note: caching disabled when --use-xtb-wbos is set")
             cache = None

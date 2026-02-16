@@ -46,3 +46,5 @@ Database compiled.csv
 benchmark_results.csv
 .benchmark_cache/
 deltahf/data/small_training_data.csv
+xtb_benchmark_results.md
+gxtb_benchmark_results.md

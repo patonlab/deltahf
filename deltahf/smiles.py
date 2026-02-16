@@ -2,6 +2,38 @@
 
 from rdkit import Chem
 
+# Supported elements for CHNO-only models
+SUPPORTED_ELEMENTS = {"C", "H", "N", "O"}
+
+
+def validate_elements(smiles: str, supported_elements: set[str] | None = None) -> None:
+    """Validate that molecule contains only supported elements.
+
+    Args:
+        smiles: SMILES string to validate
+        supported_elements: Set of allowed element symbols (defaults to CHNO)
+
+    Raises:
+        ValueError: If molecule contains unsupported elements
+    """
+    if supported_elements is None:
+        supported_elements = SUPPORTED_ELEMENTS
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError(f"Invalid SMILES: {smiles!r}")
+
+    mol = Chem.AddHs(mol)
+    present_elements = {atom.GetSymbol() for atom in mol.GetAtoms()}
+    unsupported = present_elements - supported_elements
+
+    if unsupported:
+        raise ValueError(
+            f"Molecule contains unsupported elements: {sorted(unsupported)}. "
+            f"deltahf only supports: {sorted(supported_elements)}. "
+            f"SMILES: {smiles}"
+        )
+
 
 def smiles_to_mol(smiles: str) -> Chem.Mol:
     """Convert SMILES to RDKit mol object with explicit hydrogens.

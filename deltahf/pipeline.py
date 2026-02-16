@@ -70,6 +70,10 @@ def process_molecule(
     result = MoleculeResult(smiles=smiles, name=name)
 
     try:
+        # Validate molecule contains only supported elements (CHNO)
+        from deltahf.smiles import validate_elements
+        validate_elements(smiles)
+
         result.atom_counts_4param = count_atoms(smiles)
         if not use_xtb_wbos:
             result.atom_counts_7param = classify_atoms_7param(smiles)

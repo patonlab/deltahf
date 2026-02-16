@@ -1,0 +1,17 @@
+id,name,formula,smiles,exp_dhf_kcal_mol,source,category,notes,atct_dhf_0K_kJ_mol,uncertainty_kJ_mol,in_training_data,contains_fluorine
+1,hydrogen,H2,[HH],0,ATcT_Table1,small_CHNO,0 K value,0,exact,yes (id=102),no
+2,hydrogen fluoride,HF,F,-272.68,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-272.68,0.019,no,yes
+3,methane,CH4,C,-15.9,ATcT_Table1,small_CHNO,0 K value; existing has -17.9 at 298K,-66.551,0.048,yes (id=46),no
+4,fluoromethane,CH3F,CF,-56.77,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-237.48,0.23,no,yes
+5,difluoromethane,CH2F2,FCF,-105.99,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-443.38,0.33,no,yes
+6,trifluoromethane,CHF3,FC(F)F,-164.78,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-689.34,0.38,no,yes
+7,tetrafluoromethane,CF4,FC(F)(F)F,-221.78,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-927.77,0.23,no,yes
+8,ethane,C2H6,CC,-16.35,ATcT_Table1,small_CHNO,0 K value; existing has -20.1 at 298K,-68.39,0.12,yes (id=51),no
+9,tetrafluoroethylene,C2F4,FC(F)=C(F)F,-272.04,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-1138.11,0.82,no,yes
+10,propane,C3H8,CCC,-19.77,ATcT_Table1,small_CHNO,0 K value; existing has -25.0 at 298K,-82.72,0.16,yes (id=66),no
+11,water,H2O,O,-57.1,ATcT_Table1,small_CHNO,0 K value; existing has -57.8 at 298K,-238.898,0.025,yes (id=48),no
+12,formaldehyde,CH2O,C=O,-25.19,ATcT_Table1,small_CHNO,0 K value; existing has -26.0 at 298K,-105.38,0.096,yes (id=53),no
+13,carbonyl fluoride,CF2O,FC(F)=O,-144.22,ATcT_Table1,fluorinated,0 K value; UNSUPPORTED ELEMENT F,-603.36,0.4,no,yes
+14,methanol,CH4O,CO,-45.42,ATcT_Table1,small_CHNO,0 K value; existing has -48.0 at 298K,-190.04,0.15,yes (id=54),no
+15,dimethyl ether,C2H6O,COC,-39.8,ATcT_Table1,small_CHNO,0 K value; existing has -44.0 at 298K,-166.51,0.37,yes (id=92),no
+16,acetic acid,C2H4O2,CC(O)=O,-100.03,ATcT_Table1,small_CHNO,0 K value; existing has -103.4 at 298K,-418.53,0.36,yes (id=96),no

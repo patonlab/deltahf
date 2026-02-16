@@ -42,7 +42,7 @@ def run_benchmark(use_gxtb: bool = False):
     df = load_training_data()
     print(f"Loaded {len(df)} molecules")
     if use_gxtb:
-        print("Using gxtb single-point energies\n")
+        print("Using gxtb single-point energies (wB97M-V/def2-TZVPPD approximation)\n")
     else:
         print()
 
@@ -53,7 +53,9 @@ def run_benchmark(use_gxtb: bool = False):
         print(f"  n_conformers = {n_conf}")
         print(f"{'=' * 60}")
 
-        cache = ResultCache(Path(f".benchmark_cache/n{n_conf}"))
+        # Use separate cache directories for xTB vs gxtb
+        method_suffix = "_gxtb" if use_gxtb else "_xtb"
+        cache = ResultCache(Path(f".benchmark_cache/n{n_conf}{method_suffix}"))
 
         t0 = time.time()
         results = []
@@ -149,7 +151,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark deltahf models with varying n_conformers")
     parser.add_argument(
         "--use-gxtb", action="store_true",
-        help="Use gxtb single-point energies after xtb optimization (requires gxtb binary)",
+        help="Use gxtb single-point energies (wB97M-V/def2-TZVPPD approximation)",
     )
     args = parser.parse_args()
     run_benchmark(use_gxtb=args.use_gxtb)

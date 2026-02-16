@@ -14,7 +14,9 @@ Core runtime dependencies: RDKit, NumPy, pandas. Development: pytest, ruff.
 
 **External CLI dependency:** [xTB](https://github.com/grimme-lab/xtb) must be on PATH for integration tests, `fit`, and `predict` commands. Install via conda: `conda install -c conda-forge xtb`.
 
-**Optional CLI dependency:** gxtb for refined single-point energies after xTB optimization. Install via conda: `conda install -c conda-forge gxtb`. Enable with `--use-gxtb` flag.
+**Optional CLI dependency:** gxtb for refined single-point energies after xTB optimization. Requires manual installation from source (see gxtb documentation). Enable with `--use-gxtb` flag.
+
+**IMPORTANT:** gxtb and xTB energies are on completely different scales (~10-17x difference) and must NEVER be mixed. Use `--use-gxtb` consistently for both fitting AND prediction, or use only xTB (default). See `GXTB_USAGE.md` for details.
 
 ## Commands
 
@@ -42,19 +44,19 @@ python benchmark.py --use-gxtb  # Same benchmark using gxtb energies
 
 # CLI usage
 python -m deltahf fit -i deltahf/data/training_data.csv --model all --kfold 10 --n-conformers 1 -o params.json
-python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param --n-conformers 5 -o results.csv
+python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param --n-conformers 1 -o results.csv
 ```
 
 ### Common CLI Flags
 
 - `--model`: `4param`, `7param`, `hybrid`, `extended`, `both` (4+7), or `all` (for `fit`); single model for `predict`
-- `--n-conformers N`: Number of ETKDG conformers to optimize with xTB (default: 5)
-- `--cache-dir PATH`: Cache xTB results as JSON for restart capability
+- `--n-conformers N`: Number of ETKDG conformers to optimize with xTB (default: 1)
+- `--cache-dir PATH`: Cache results as JSON for restart capability. Automatically suffixed with `_xtb` or `_gxtb` based on method.
 - `--use-xtb-wbos`: Use xTB Wiberg bond orders for 7-param classification instead of RDKit (disables caching)
-- `--use-gxtb`: Use gxtb single-point energies on xTB-optimized geometries (requires gxtb binary). Predictions use gxtb energy when available.
+- `--use-gxtb`: Use gxtb (wB97M-V/def2-TZVPPD) energies instead of xTB. Must be used consistently for both fit AND predict! Cache directory automatically separated.
 - `--verbose, -v`: Print per-molecule details instead of progress bar
 - `--csv FILE` (fit only): Output CSV with training data + predictions + errors for each model
-- `-o, --output FILE`: JSON output for fitted parameters (fit) or CSV for predictions (predict)
+- `-o, --output FILE`: JSON output for fitted parameters (fit) or CSV for predictions (predict). Parameters include `_metadata` tracking the method used.
 
 ## Architecture
 
