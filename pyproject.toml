@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deltahf"
+version = "0.1.0"
+description = "Heat of formation prediction using xTB and atom equivalent energies"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "rdkit",
+    "numpy",
+    "scipy",
+    "pandas",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+deltahf = "deltahf.__main__:main"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests that require xtb CLI (deselect with '-m \"not integration\"')",
+]
