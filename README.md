@@ -13,7 +13,7 @@ The core equation is:
 ΔHf° = u_xtb − Σ(nl × εl)
 ```
 
-where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy.
+where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy. Optionally, `u_xtb` can be replaced with a refined `u_gxtb` single-point energy using the `--use-gxtb` flag.
 
 ### Atom Equivalent Models
 
@@ -83,6 +83,7 @@ python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 5 -o
 | `--output, -o` | Output JSON file for fitted epsilon values. | — |
 | `--csv` | Output CSV with training data and per-molecule predictions. | — |
 | `--use-xtb-wbos` | Use xTB Wiberg bond orders (instead of RDKit) for 7-param classification. | — |
+| `--use-gxtb` | Use gxtb single-point energies after xTB optimization (requires gxtb binary). | — |
 | `--cache-dir` | Directory for caching xTB results (enables restart capability). | — |
 | `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
 
@@ -97,10 +98,11 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--input, -i` | CSV file with a `smiles` column (required). | — |
-| `--epsilon` | JSON file with fitted atom equivalent energies (required). | — |
+| `--epsilon` | JSON file with fitted atom equivalent energies (uses defaults from `params/` if not specified). | Default params |
 | `--model` | Which model to use: `4param`, `7param`, `hybrid`, or `extended`. | `4param` |
 | `--n-conformers` | Number of conformers to optimize with xTB. | `5` |
 | `--output, -o` | Output CSV with predicted ΔHf° values. | — |
+| `--use-gxtb` | Use gxtb single-point energies after xTB optimization (requires gxtb binary). | — |
 | `--cache-dir` | Directory for caching xTB results. | — |
 | `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
 
@@ -177,10 +179,14 @@ python -m deltahf predict \
 `benchmark.py` measures how the number of conformers affects model accuracy and wall-clock time:
 
 ```bash
+# Benchmark with xTB energies
 python benchmark.py
+
+# Benchmark with gxtb energies (requires gxtb binary)
+python benchmark.py --use-gxtb
 ```
 
-This runs the full fitting workflow at `n_conformers` = 1, 3, 5, 10, timing each run and reporting Adj. R², RMSD, MAD, max deviation, and CV RMSD for all four models. Results are saved to `benchmark_results.csv`. xTB results are cached per `n_conformers` in `.benchmark_cache/`, so re-runs skip the expensive optimization step.
+This runs the full fitting workflow at `n_conformers` = 1, 3, 5, timing each run and reporting Adj. R², RMSD, MAD, max deviation, and CV RMSD for all four models. Results are saved to `benchmark_results.csv`. xTB results are cached per `n_conformers` in `.benchmark_cache/`, so re-runs skip the expensive optimization step.
 
 ## Pipeline
 
@@ -190,16 +196,21 @@ For each molecule, deltahf performs the following steps:
 2. **Conformer generation** — Generate 3D conformers via ETKDG, rank by MMFF94 energy, and prune near-duplicates by RMSD
 3. **xTB optimization** — Optimize the lowest *n* unique conformers with GFN2-xTB
 4. **Connectivity check** — Verify the optimized geometry hasn't isomerized (atom connectivity preserved)
-5. **ΔHf° prediction** — Apply the atom equivalent formula using the lowest xTB energy
+5. **gxtb refinement** (optional) — Compute single-point energy with gxtb on the lowest-energy xTB conformer
+6. **ΔHf° prediction** — Apply the atom equivalent formula using the lowest xTB (or gxtb) energy
 
 ## Dependencies
 
+**Required:**
 - [Python](https://www.python.org/) >= 3.10
 - [RDKit](https://www.rdkit.org/) — molecular representation, 3D embedding, ETKDG conformer generation
-- [xTB](https://github.com/grimme-lab/xtb) — GFN2 semi-empirical optimization (CLI)
+- [xTB](https://github.com/grimme-lab/xtb) — GFN2 semi-empirical optimization (CLI, available via conda-forge)
 - [NumPy](https://numpy.org/) — numerical fitting
 - [pandas](https://pandas.pydata.org/) — CSV I/O
 - [tqdm](https://tqdm.github.io/) — progress bars
+
+**Optional:**
+- [gxtb](https://github.com/grimme-lab/gxtb) — GFN-xTB single-point energies for refined predictions (not available via pip/conda; must be compiled from source)
 
 ## Testing
 

@@ -132,6 +132,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
     )
     fit_parser.add_argument(
+        "--use-gxtb", action="store_true",
+        help="Use gxtb single-point energies after xtb optimization (requires gxtb binary)",
+    )
+    fit_parser.add_argument(
         "--cache-dir", type=str, default=None,
         help="Directory for caching xTB results (enables restart capability)",
     )
@@ -143,13 +147,17 @@ def build_parser() -> argparse.ArgumentParser:
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
     pred_parser.add_argument("--input", "-i", required=True, help="CSV with smiles column")
-    pred_parser.add_argument("--epsilon", required=True, help="JSON file with fitted epsilon values")
+    pred_parser.add_argument("--epsilon", required=False, help="JSON file with fitted epsilon values (uses defaults if not specified)")
     pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "extended"], default="4param")
     pred_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
     pred_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
         help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
+    )
+    pred_parser.add_argument(
+        "--use-gxtb", action="store_true",
+        help="Use gxtb single-point energies after xtb optimization (requires gxtb binary)",
     )
     pred_parser.add_argument(
         "--cache-dir", type=str, default=None,
@@ -206,12 +214,14 @@ def cmd_fit(args):
             print(f"      [{idx + 1}/{len(df)}] {name}: {smiles}")
             result = process_molecule(
                 smiles, n_conformers=args.n_conformers, name=name,
-                use_xtb_wbos=args.use_xtb_wbos, cache=cache,
+                use_xtb_wbos=args.use_xtb_wbos, use_gxtb=args.use_gxtb, cache=cache,
             )
             if result.error:
                 print(f"         ERROR: {result.error}")
             else:
                 print(f"         xTB energy: {result.xtb_energy:.6f} Eh")
+                if result.gxtb_energy is not None:
+                    print(f"         gxtb energy: {result.gxtb_energy:.6f} Eh")
                 if result.n_conformers_isomerized > 0:
                     print(f"         WARNING: {result.n_conformers_isomerized} conformer(s) isomerized")
             results.append(result)
@@ -223,7 +233,7 @@ def cmd_fit(args):
             name = row.get("name", f"mol_{idx}")
             result = process_molecule(
                 smiles, n_conformers=args.n_conformers, name=name,
-                use_xtb_wbos=args.use_xtb_wbos, cache=cache,
+                use_xtb_wbos=args.use_xtb_wbos, use_gxtb=args.use_gxtb, cache=cache,
             )
             if result.error:
                 errors.append(f"{name}: {result.error}")
@@ -252,7 +262,11 @@ def cmd_fit(args):
         sys.exit(1)
 
     indices = [i for i, _ in successful]
-    u_values = [r.xtb_energy_kcal for _, r in successful]
+    # Use gxtb energy if available, otherwise fall back to xtb energy
+    u_values = [
+        (r.gxtb_energy_kcal if r.gxtb_energy_kcal is not None else r.xtb_energy_kcal)
+        for _, r in successful
+    ]
     exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
 
     output = {}
@@ -308,7 +322,25 @@ def cmd_predict(args):
         print(f"   Error: {e}")
         sys.exit(1)
 
-    with open(args.epsilon) as f:
+    # Determine which epsilon file to use
+    if args.epsilon:
+        epsilon_file = args.epsilon
+    else:
+        # Use default parameters from params directory
+        params_dir = Path(__file__).parent.parent / "params"
+        if args.use_gxtb:
+            epsilon_file = params_dir / "gxtb_params.json"
+        else:
+            epsilon_file = params_dir / "xtb_params.json"
+
+        if not epsilon_file.exists():
+            print(f"   Error: Default parameter file not found: {epsilon_file}")
+            sys.exit(1)
+
+        print(f"   WARNING: Using default parameters from {epsilon_file}")
+        print(f"            Specify --epsilon to use custom parameters\n")
+
+    with open(epsilon_file) as f:
         epsilon_data = json.load(f)
 
     epsilon = epsilon_data.get(args.model, epsilon_data)
@@ -329,12 +361,33 @@ def cmd_predict(args):
         n_conformers=args.n_conformers,
         output_path=Path(args.output) if args.output else None,
         use_xtb_wbos=args.use_xtb_wbos,
+        use_gxtb=args.use_gxtb,
         cache=cache,
         verbose=args.verbose,
         **epsilon_kwargs,
     )
 
-    print(results_df.to_string(index=False))
+    # Create simplified display with just essential columns
+    display_cols = ["smiles"]
+    if "name" in results_df.columns:
+        display_cols.append("name")
+    display_cols.append("xtb_energy_kcal")
+    if args.use_gxtb:
+        display_cols.append("gxtb_energy_kcal")
+
+    # Add the prediction column based on the model
+    dhf_col = f"dhf_{args.model}"
+    if dhf_col in results_df.columns:
+        display_cols.append(dhf_col)
+
+    if "error" in results_df.columns:
+        display_cols.append("error")
+
+    # Filter to columns that exist in the dataframe
+    display_cols = [col for col in display_cols if col in results_df.columns]
+    display_df = results_df[display_cols]
+
+    print(display_df.to_string(index=False))
     if args.output:
         print(f"\n   Results saved to {args.output}")
 

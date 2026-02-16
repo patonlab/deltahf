@@ -1,5 +1,6 @@
 """Benchmark: effect of n_conformers on model accuracy and timing."""
 
+import argparse
 import time
 
 import pandas as pd
@@ -26,7 +27,7 @@ from deltahf.pipeline import process_molecule
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 
-N_CONFORMERS = [1, 3, 5, 10]
+N_CONFORMERS = [1, 3, 5]
 KFOLD = 10
 
 MODEL_DEFS = {
@@ -37,9 +38,13 @@ MODEL_DEFS = {
 }
 
 
-def run_benchmark():
+def run_benchmark(use_gxtb: bool = False):
     df = load_training_data()
-    print(f"Loaded {len(df)} molecules\n")
+    print(f"Loaded {len(df)} molecules")
+    if use_gxtb:
+        print("Using gxtb single-point energies\n")
+    else:
+        print()
 
     benchmark_rows = []
 
@@ -58,6 +63,7 @@ def run_benchmark():
                 row["smiles"],
                 n_conformers=n_conf,
                 name=row.get("name", None),
+                use_gxtb=use_gxtb,
                 cache=cache,
             )
             results.append(result)
@@ -72,7 +78,11 @@ def run_benchmark():
             print(f"  {len(errors)} failed: {errors[0]}")
 
         indices = [i for i, _ in successful]
-        u_values = [r.xtb_energy_kcal for _, r in successful]
+        # Use gxtb energy if available, otherwise fall back to xtb energy
+        u_values = [
+            (r.gxtb_energy_kcal if r.gxtb_energy_kcal is not None else r.xtb_energy_kcal)
+            for _, r in successful
+        ]
         exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
 
         for model_name, (param_names, counts_attr) in MODEL_DEFS.items():
@@ -136,4 +146,10 @@ def run_benchmark():
 
 
 if __name__ == "__main__":
-    run_benchmark()
+    parser = argparse.ArgumentParser(description="Benchmark deltahf models with varying n_conformers")
+    parser.add_argument(
+        "--use-gxtb", action="store_true",
+        help="Use gxtb single-point energies after xtb optimization (requires gxtb binary)",
+    )
+    args = parser.parse_args()
+    run_benchmark(use_gxtb=args.use_gxtb)

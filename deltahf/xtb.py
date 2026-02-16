@@ -26,6 +26,11 @@ def find_xtb_binary() -> str:
     return path
 
 
+def find_gxtb_binary() -> str | None:
+    """Locate the gxtb binary. Returns None if not found (gxtb is optional)."""
+    return shutil.which("gxtb")
+
+
 def build_xtb_command(
     xyz_path: str,
     opt: bool = True,
@@ -116,4 +121,94 @@ def run_xtb_optimization(
         converged=True,
         stdout=result.stdout,
         wbo_path=wbo_file if wbo_file.exists() else None,
+    )
+
+
+def parse_gxtb_energy_file(energy_file_path: Path) -> float:
+    """Parse gxtb energy file.
+
+    The energy file has the format:
+        energy
+        <value1> <energy_in_hartree>
+        $end
+
+    Returns the energy in Hartree (second column of line 1).
+    """
+    lines = energy_file_path.read_text().strip().splitlines()
+    if len(lines) < 2:
+        raise RuntimeError(f"gxtb energy file has insufficient lines: {len(lines)}")
+
+    data_line = lines[1].strip().split()
+    if len(data_line) < 2:
+        raise RuntimeError(f"gxtb energy file line 1 has insufficient columns: {len(data_line)}")
+
+    return float(data_line[1])
+
+
+def run_gxtb_single_point(
+    xyz_path: Path,
+    timeout: int = 300,
+) -> XtbResult:
+    """Run gxtb single-point energy calculation and return results.
+
+    gxtb does not support geometry optimization (no analytical gradients).
+    It reads an XYZ file and writes energy to an 'energy' file in the working directory.
+    """
+    gxtb_path = find_gxtb_binary()
+    if gxtb_path is None:
+        return XtbResult(
+            energy=float("nan"),
+            optimized_xyz_path=None,
+            converged=False,
+            stdout="gxtb binary not found",
+        )
+
+    cmd = ["gxtb", "-c", xyz_path.name]
+    work_dir = xyz_path.parent
+
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=work_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return XtbResult(energy=float("nan"), optimized_xyz_path=None, converged=False, stdout="Timeout expired")
+
+    if result.returncode != 0:
+        return XtbResult(
+            energy=float("nan"),
+            optimized_xyz_path=None,
+            converged=False,
+            stdout=result.stdout + result.stderr,
+        )
+
+    energy_file = work_dir / "energy"
+    if not energy_file.exists():
+        return XtbResult(
+            energy=float("nan"),
+            optimized_xyz_path=None,
+            converged=False,
+            stdout=result.stdout + "\nError: gxtb did not produce 'energy' file",
+        )
+
+    try:
+        energy = parse_gxtb_energy_file(energy_file)
+    except (ValueError, RuntimeError) as e:
+        return XtbResult(
+            energy=float("nan"),
+            optimized_xyz_path=None,
+            converged=False,
+            stdout=result.stdout + f"\nError parsing energy file: {e}",
+        )
+
+    return XtbResult(
+        energy=energy,
+        optimized_xyz_path=xyz_path,  # gxtb doesn't modify geometry
+        converged=True,
+        stdout=result.stdout,
     )

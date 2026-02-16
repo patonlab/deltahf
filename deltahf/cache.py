@@ -21,6 +21,8 @@ class CachedResult:
     n_conformers_isomerized: int
     gfn_level: int
     charge: int
+    gxtb_energy: float | None = None
+    gxtb_energy_kcal: float | None = None
 
 
 class ResultCache:
@@ -79,4 +81,6 @@ class ResultCache:
             "n_conformers_isomerized": result.n_conformers_isomerized,
             "gfn_level": result.gfn_level,
             "charge": result.charge,
+            "gxtb_energy": result.gxtb_energy,
+            "gxtb_energy_kcal": result.gxtb_energy_kcal,
         }

@@ -24,7 +24,7 @@ from deltahf.smiles import (
     classify_atoms_hybrid,
     count_atoms,
 )
-from deltahf.xtb import parse_wbo_file, run_xtb_optimization
+from deltahf.xtb import find_gxtb_binary, parse_wbo_file, run_gxtb_single_point, run_xtb_optimization
 
 if TYPE_CHECKING:
     from deltahf.cache import ResultCache
@@ -36,6 +36,8 @@ class MoleculeResult:
     name: str | None = None
     xtb_energy: float | None = None
     xtb_energy_kcal: float | None = None
+    gxtb_energy: float | None = None
+    gxtb_energy_kcal: float | None = None
     atom_counts_4param: dict | None = None
     atom_counts_7param: dict | None = None
     atom_counts_hybrid: dict | None = None
@@ -61,6 +63,7 @@ def process_molecule(
     work_dir: Path | None = None,
     name: str | None = None,
     use_xtb_wbos: bool = False,
+    use_gxtb: bool = False,
     cache: ResultCache | None = None,
 ) -> MoleculeResult:
     """Full pipeline for a single molecule."""
@@ -79,23 +82,27 @@ def process_molecule(
             if cached is not None:
                 result.xtb_energy = cached.xtb_energy
                 result.xtb_energy_kcal = cached.xtb_energy_kcal
+                result.gxtb_energy = cached.gxtb_energy
+                result.gxtb_energy_kcal = cached.gxtb_energy_kcal
                 result.n_conformers_optimized = cached.n_conformers_optimized
                 result.n_conformers_isomerized = cached.n_conformers_isomerized
+                # Use gxtb energy for predictions if available, otherwise fall back to xtb
+                energy_for_prediction = result.gxtb_energy_kcal if result.gxtb_energy_kcal is not None else result.xtb_energy_kcal
                 if epsilon_4param:
                     result.dhf_4param = predict_dhf(
-                        result.xtb_energy_kcal, result.atom_counts_4param, epsilon_4param
+                        energy_for_prediction, result.atom_counts_4param, epsilon_4param
                     )
                 if epsilon_7param:
                     result.dhf_7param = predict_dhf(
-                        result.xtb_energy_kcal, result.atom_counts_7param, epsilon_7param
+                        energy_for_prediction, result.atom_counts_7param, epsilon_7param
                     )
                 if epsilon_hybrid:
                     result.dhf_hybrid = predict_dhf(
-                        result.xtb_energy_kcal, result.atom_counts_hybrid, epsilon_hybrid
+                        energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid
                     )
                 if epsilon_extended:
                     result.dhf_extended = predict_dhf(
-                        result.xtb_energy_kcal, result.atom_counts_extended, epsilon_extended
+                        energy_for_prediction, result.atom_counts_extended, epsilon_extended
                     )
                 return result
 
@@ -107,6 +114,7 @@ def process_molecule(
 
         best_energy = float("inf")
         best_wbo_path = None
+        best_xyz_path = None
         if work_dir is None:
             work_dir = Path(tempfile.mkdtemp())
 
@@ -125,6 +133,7 @@ def process_molecule(
                 if xtb_result.energy < best_energy:
                     best_energy = xtb_result.energy
                     best_wbo_path = xtb_result.wbo_path
+                    best_xyz_path = xtb_result.optimized_xyz_path
 
         if best_energy == float("inf"):
             if result.n_conformers_isomerized > 0:
@@ -138,6 +147,15 @@ def process_molecule(
 
         result.xtb_energy = best_energy
         result.xtb_energy_kcal = best_energy * HARTREE_TO_KCAL
+
+        # Optionally run gxtb single-point energy calculation on the best conformer
+        if use_gxtb and best_xyz_path is not None:
+            if find_gxtb_binary() is not None:
+                gxtb_result = run_gxtb_single_point(best_xyz_path)
+                if gxtb_result.converged:
+                    result.gxtb_energy = gxtb_result.energy
+                    result.gxtb_energy_kcal = gxtb_result.energy * HARTREE_TO_KCAL
+                # If gxtb fails, we silently continue with xtb energy (no error)
 
         # Store in cache
         if cache is not None and not use_xtb_wbos:
@@ -155,6 +173,8 @@ def process_molecule(
                     n_conformers_isomerized=result.n_conformers_isomerized,
                     gfn_level=2,
                     charge=0,
+                    gxtb_energy=result.gxtb_energy,
+                    gxtb_energy_kcal=result.gxtb_energy_kcal,
                 )
             )
             cache.save()
@@ -163,14 +183,17 @@ def process_molecule(
             wbos = parse_wbo_file(best_wbo_path)
             result.atom_counts_7param = classify_atoms_7param_from_wbo(smiles, wbos)
 
+        # Use gxtb energy for predictions if available, otherwise fall back to xtb
+        energy_for_prediction = result.gxtb_energy_kcal if result.gxtb_energy_kcal is not None else result.xtb_energy_kcal
+
         if epsilon_4param:
-            result.dhf_4param = predict_dhf(result.xtb_energy_kcal, result.atom_counts_4param, epsilon_4param)
+            result.dhf_4param = predict_dhf(energy_for_prediction, result.atom_counts_4param, epsilon_4param)
         if epsilon_7param:
-            result.dhf_7param = predict_dhf(result.xtb_energy_kcal, result.atom_counts_7param, epsilon_7param)
+            result.dhf_7param = predict_dhf(energy_for_prediction, result.atom_counts_7param, epsilon_7param)
         if epsilon_hybrid:
-            result.dhf_hybrid = predict_dhf(result.xtb_energy_kcal, result.atom_counts_hybrid, epsilon_hybrid)
+            result.dhf_hybrid = predict_dhf(energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid)
         if epsilon_extended:
-            result.dhf_extended = predict_dhf(result.xtb_energy_kcal, result.atom_counts_extended, epsilon_extended)
+            result.dhf_extended = predict_dhf(energy_for_prediction, result.atom_counts_extended, epsilon_extended)
 
     except Exception as e:
         result.error = str(e)
@@ -187,6 +210,7 @@ def process_csv(
     epsilon_extended: dict | None = None,
     output_path: Path | None = None,
     use_xtb_wbos: bool = False,
+    use_gxtb: bool = False,
     cache: ResultCache | None = None,
     verbose: bool = False,
 ) -> pd.DataFrame:
@@ -213,6 +237,7 @@ def process_csv(
             epsilon_extended=epsilon_extended,
             name=mol_name,
             use_xtb_wbos=use_xtb_wbos,
+            use_gxtb=use_gxtb,
             cache=cache,
         )
         results.append(mol_result)

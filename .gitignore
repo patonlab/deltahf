@@ -45,3 +45,4 @@ fit_results.csv
 Database compiled.csv
 benchmark_results.csv
 .benchmark_cache/
+deltahf/data/small_training_data.csv

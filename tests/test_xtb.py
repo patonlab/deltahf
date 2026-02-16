@@ -2,7 +2,13 @@
 
 import pytest
 
-from deltahf.xtb import build_xtb_command, parse_total_energy, parse_wbo_file
+from deltahf.xtb import (
+    build_xtb_command,
+    find_gxtb_binary,
+    parse_gxtb_energy_file,
+    parse_total_energy,
+    parse_wbo_file,
+)
 
 
 class TestParseTotalEnergy:
@@ -105,3 +111,48 @@ class TestParseWboFile:
         wbo_file.write_text("           1           2  1.5\n")
         wbos = parse_wbo_file(wbo_file)
         assert wbos[(0, 1)] == wbos[(1, 0)]
+
+
+class TestFindGxtbBinary:
+    def test_returns_none_if_not_found(self, monkeypatch):
+        """gxtb is optional, so return None if not found."""
+        monkeypatch.setattr("shutil.which", lambda x: None)
+        assert find_gxtb_binary() is None
+
+    def test_returns_path_if_found(self, monkeypatch):
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/gxtb" if x == "gxtb" else None)
+        assert find_gxtb_binary() == "/usr/bin/gxtb"
+
+
+class TestParseGxtbEnergyFile:
+    def test_parse_valid_energy_file(self, tmp_path):
+        """Parse gxtb energy file format."""
+        energy_file = tmp_path / "energy"
+        energy_file.write_text("energy\n0.0 -5.123456789012\n$end\n")
+        energy = parse_gxtb_energy_file(energy_file)
+        assert energy == pytest.approx(-5.123456789012, abs=1e-10)
+
+    def test_parse_with_different_first_column(self, tmp_path):
+        """First column value doesn't matter, only second column."""
+        energy_file = tmp_path / "energy"
+        energy_file.write_text("energy\n42.0 -10.5\n$end\n")
+        energy = parse_gxtb_energy_file(energy_file)
+        assert energy == pytest.approx(-10.5, abs=1e-10)
+
+    def test_insufficient_lines_raises(self, tmp_path):
+        energy_file = tmp_path / "energy"
+        energy_file.write_text("energy\n")
+        with pytest.raises(RuntimeError, match="insufficient lines"):
+            parse_gxtb_energy_file(energy_file)
+
+    def test_insufficient_columns_raises(self, tmp_path):
+        energy_file = tmp_path / "energy"
+        energy_file.write_text("energy\n-5.0\n")
+        with pytest.raises(RuntimeError, match="insufficient columns"):
+            parse_gxtb_energy_file(energy_file)
+
+    def test_empty_file_raises(self, tmp_path):
+        energy_file = tmp_path / "energy"
+        energy_file.write_text("")
+        with pytest.raises(RuntimeError):
+            parse_gxtb_energy_file(energy_file)

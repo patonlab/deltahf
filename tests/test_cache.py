@@ -15,6 +15,8 @@ def _make_cached_result(**overrides):
         "n_conformers_isomerized": 0,
         "gfn_level": 2,
         "charge": 0,
+        "gxtb_energy": None,
+        "gxtb_energy_kcal": None,
     }
     defaults.update(overrides)
     return CachedResult(**defaults)
@@ -90,6 +92,50 @@ class TestResultCache:
         cache.store(_make_cached_result(xtb_energy=-6.0))
         found = cache.lookup("CCO", n_conformers=5)
         assert found.xtb_energy == -6.0
+
+    def test_gxtb_fields_stored_and_retrieved(self, tmp_path):
+        """Test that gxtb energy fields are properly cached."""
+        cache = ResultCache(tmp_path)
+        result = _make_cached_result(
+            gxtb_energy=-4.5,
+            gxtb_energy_kcal=-2823.792,
+        )
+        cache.store(result)
+        cache.save()
+
+        cache2 = ResultCache(tmp_path)
+        found = cache2.lookup("CCO", n_conformers=5)
+        assert found is not None
+        assert found.gxtb_energy == -4.5
+        assert found.gxtb_energy_kcal == -2823.792
+
+    def test_backward_compatibility_without_gxtb(self, tmp_path):
+        """Cache files without gxtb fields should load with None values."""
+        import json
+
+        # Simulate old cache file without gxtb fields
+        old_cache_data = {
+            "CCO": {
+                "canonical_smiles": "CCO",
+                "xtb_energy": -5.0,
+                "xtb_energy_kcal": -3137.547,
+                "n_conformers": 5,
+                "n_conformers_optimized": 5,
+                "n_conformers_isomerized": 0,
+                "gfn_level": 2,
+                "charge": 0,
+            }
+        }
+        cache_file = tmp_path / "cache.json"
+        with open(cache_file, "w") as f:
+            json.dump(old_cache_data, f)
+
+        cache = ResultCache(tmp_path)
+        found = cache.lookup("CCO", n_conformers=5)
+        assert found is not None
+        assert found.xtb_energy == -5.0
+        assert found.gxtb_energy is None
+        assert found.gxtb_energy_kcal is None
 
 
 class TestCacheInPipeline:

@@ -8,6 +8,14 @@ Python package estimating gas-phase standard heats of formation (ΔHf°) from at
 
 Core equation: `ΔHf° = u_xtb − Σ(nl × εl)` where `u_xtb` is xTB total energy (kcal/mol), `nl` is atom count for type `l`, and `εl` is the fitted atom equivalent energy.
 
+## Dependencies
+
+Core runtime dependencies: RDKit, NumPy, pandas. Development: pytest, ruff.
+
+**External CLI dependency:** [xTB](https://github.com/grimme-lab/xtb) must be on PATH for integration tests, `fit`, and `predict` commands. Install via conda: `conda install -c conda-forge xtb`.
+
+**Optional CLI dependency:** gxtb for refined single-point energies after xTB optimization. Install via conda: `conda install -c conda-forge gxtb`. Enable with `--use-gxtb` flag.
+
 ## Commands
 
 ```bash
@@ -28,10 +36,25 @@ pytest tests/test_smiles.py::TestCountAtoms::test_methane
 # Lint
 ruff check deltahf/ tests/
 
+# Benchmarking
+python benchmark.py  # Measures accuracy vs n_conformers (1, 3, 5, 10), outputs benchmark_results.csv
+python benchmark.py --use-gxtb  # Same benchmark using gxtb energies
+
 # CLI usage
 python -m deltahf fit -i deltahf/data/training_data.csv --model all --kfold 10 --n-conformers 1 -o params.json
 python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param --n-conformers 5 -o results.csv
 ```
+
+### Common CLI Flags
+
+- `--model`: `4param`, `7param`, `hybrid`, `extended`, `both` (4+7), or `all` (for `fit`); single model for `predict`
+- `--n-conformers N`: Number of ETKDG conformers to optimize with xTB (default: 5)
+- `--cache-dir PATH`: Cache xTB results as JSON for restart capability
+- `--use-xtb-wbos`: Use xTB Wiberg bond orders for 7-param classification instead of RDKit (disables caching)
+- `--use-gxtb`: Use gxtb single-point energies on xTB-optimized geometries (requires gxtb binary). Predictions use gxtb energy when available.
+- `--verbose, -v`: Print per-molecule details instead of progress bar
+- `--csv FILE` (fit only): Output CSV with training data + predictions + errors for each model
+- `-o, --output FILE`: JSON output for fitted parameters (fit) or CSV for predictions (predict)
 
 ## Architecture
 
@@ -84,3 +107,39 @@ Uses RDKit `GetBondTypeAsDouble()` from the molecular graph. An atom is "primed"
 Sources: **Cawkwell2021** (102 CHNO molecules) and **Yalamanchi2020** (212 CH cyclic hydrocarbons, enthalpies converted from kJ/mol).
 
 Categories: `energetic` (45), `small_CHNO` (57), `cyclic_HC` (189), `strained_3ring` (13), `large_HC` (10). All molecules contain only C, H, N, O.
+
+## Benchmarking
+
+`benchmark.py` (in the repo root) measures how `n_conformers` affects accuracy and runtime:
+
+- Tests with `n_conformers` = 1, 3, 5, 10
+- Runs full fitting workflow with 10-fold CV for all four models
+- Reports Adj. R², RMSD, MAD, max deviation, CV RMSD, and wall time for each configuration
+- Outputs `benchmark_results.csv` with comparative results
+- Uses separate cache directories per `n_conformers` (`.benchmark_cache/n1/`, etc.) to enable restart capability
+
+## Cache Mechanism
+
+Both `fit` and `predict` commands support `--cache-dir` to cache xTB results:
+
+- Each molecule's xTB results (energy, coordinates, Wiberg bond orders) are saved as JSON
+- Enables restarting failed runs without re-running expensive xTB calculations
+- Cache key is based on SMILES string and `n_conformers`
+- Used extensively in `benchmark.py` to avoid redundant xTB calls
+- **Important:** Caching is automatically disabled when `--use-xtb-wbos` is set
+
+## Output Formats
+
+**fit --csv**: Adds columns to input CSV:
+- `xtb_energy_eh`, `xtb_energy_kcal_mol`: xTB total energies
+- `gxtb_energy_eh`, `gxtb_energy_kcal_mol`: gxtb single-point energies (if `--use-gxtb` is set)
+- `pred_dhf_4param`, `pred_dhf_7param`, etc.: Predicted ΔHf° for each model (kcal/mol, uses gxtb energy if available)
+- `error_4param`, `error_7param`, etc.: Prediction error (pred - exp) for each model
+- `error`: Error message for failed molecules (None if successful)
+
+**predict -o**: Creates CSV with columns:
+- All input columns (including `smiles`, `name` if present)
+- `xtb_energy_kcal_mol`: xTB energy
+- `gxtb_energy_kcal_mol`: gxtb single-point energy (if `--use-gxtb` is set)
+- `pred_dhf_kcal_mol`: Predicted ΔHf° using specified model (uses gxtb energy if available)
+- `error`: Error message (None if successful)
