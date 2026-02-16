@@ -33,3 +33,7 @@ xtbopt.xyz
 # Supplementary data (large files, not tracked)
 *.xlsx
 TODO
+
+# Run outputs
+params.json
+fit_results.csv

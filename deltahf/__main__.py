@@ -30,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser.add_argument("--kfold", type=int, default=10, help="Number of CV folds")
     fit_parser.add_argument("--n-conformers", type=int, default=5, help="Number of conformers to optimize")
     fit_parser.add_argument("--output", "-o", help="Output JSON file for fitted epsilon values")
+    fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
 
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
@@ -45,6 +46,14 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_fit(args):
     """Run the fitting workflow."""
     import pandas as pd
+
+    from deltahf.xtb import find_xtb_binary
+
+    try:
+        find_xtb_binary()
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
     df = pd.read_csv(args.input)
     print(f"Loaded {len(df)} molecules from {args.input}")
@@ -66,6 +75,13 @@ def cmd_fit(args):
     # Filter successful results
     successful = [(i, r) for i, r in enumerate(results) if r.error is None]
     print(f"\n{len(successful)}/{len(results)} molecules completed successfully")
+
+    if not successful:
+        failed = [(i, r) for i, r in enumerate(results) if r.error is not None]
+        print("\nAll molecules failed. First error:")
+        print(f"  {df.iloc[failed[0][0]]['name']}: {failed[0][1].error}")
+        print("\nIs xTB on your PATH? Try: conda activate deltahf")
+        sys.exit(1)
 
     indices = [i for i, _ in successful]
     u_values = [r.xtb_energy_kcal for _, r in successful]
@@ -114,9 +130,44 @@ def cmd_fit(args):
             json.dump(output, f, indent=2)
         print(f"\nFitted parameters saved to {args.output}")
 
+    if args.csv:
+        results_df = df.copy()
+        results_df["xtb_energy_eh"] = [results[i].xtb_energy if results[i].error is None else None for i in range(len(df))]
+        results_df["xtb_energy_kcal_mol"] = [
+            results[i].xtb_energy_kcal if results[i].error is None else None for i in range(len(df))
+        ]
+
+        # Map predictions back to full DataFrame (None for failed molecules)
+        pred_4_full = [None] * len(df)
+        pred_7_full = [None] * len(df)
+        for j, idx in enumerate(indices):
+            if args.model in ("4param", "both"):
+                pred_4_full[idx] = predicted_4[j]
+            if args.model in ("7param", "both"):
+                pred_7_full[idx] = predicted_7[j]
+
+        if args.model in ("4param", "both"):
+            results_df["pred_dhf_4param"] = pred_4_full
+            results_df["error_4param"] = results_df["pred_dhf_4param"] - results_df["exp_dhf_kcal_mol"]
+        if args.model in ("7param", "both"):
+            results_df["pred_dhf_7param"] = pred_7_full
+            results_df["error_7param"] = results_df["pred_dhf_7param"] - results_df["exp_dhf_kcal_mol"]
+
+        results_df["error"] = [results[i].error for i in range(len(df))]
+        results_df.to_csv(args.csv, index=False)
+        print(f"Results CSV saved to {args.csv}")
+
 
 def cmd_predict(args):
     """Run the prediction workflow."""
+    from deltahf.xtb import find_xtb_binary
+
+    try:
+        find_xtb_binary()
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
     with open(args.epsilon) as f:
         epsilon_data = json.load(f)
 
