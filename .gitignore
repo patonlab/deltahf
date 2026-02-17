@@ -31,6 +31,7 @@ xtbopt.xyz
 .xtboptok
 
 # Supplementary data (large files, not tracked)
+literature*
 *.xlsx
 TODO
 *.pdf
@@ -45,6 +46,7 @@ fit_results.csv
 Database compiled.csv
 benchmark_results.csv
 .benchmark_cache/
+.cache/
 deltahf/data/small_training_data.csv
 xtb_benchmark_results.md
 gxtb_benchmark_results.md
