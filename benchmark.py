@@ -10,10 +10,6 @@ from tqdm import tqdm
 from rdkit import RDLogger
 
 from deltahf.atom_equivalents import (
-    PARAM_NAMES_4,
-    PARAM_NAMES_7,
-    PARAM_NAMES_EXTENDED,
-    PARAM_NAMES_HYBRID,
     fit_atom_equivalents,
     kfold_cross_validation,
     max_abs_deviation,
@@ -22,20 +18,14 @@ from deltahf.atom_equivalents import (
     rmsd,
 )
 from deltahf.cache import ResultCache
+from deltahf.constants import MODEL_DEFS
 from deltahf.data import load_training_data
-from deltahf.pipeline import process_molecule
+from deltahf.pipeline import _best_energy_kcal, process_molecule
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 
 N_CONFORMERS = [1, 3, 5]
 KFOLD = 10
-
-MODEL_DEFS = {
-    "4param": (PARAM_NAMES_4, "atom_counts_4param"),
-    "7param": (PARAM_NAMES_7, "atom_counts_7param"),
-    "hybrid": (PARAM_NAMES_HYBRID, "atom_counts_hybrid"),
-    "extended": (PARAM_NAMES_EXTENDED, "atom_counts_extended"),
-}
 
 
 def run_benchmark(optimizer: str = "xtb", use_gxtb: bool = False):
@@ -92,11 +82,7 @@ def run_benchmark(optimizer: str = "xtb", use_gxtb: bool = False):
             print(f"  {len(errors)} failed: {errors[0]}")
 
         indices = [i for i, _ in successful]
-        # Energy priority: gxtb > MLIP > xTB
-        u_values = [
-            (r.gxtb_energy_kcal or r.uma_energy_kcal or r.xtb_energy_kcal)
-            for _, r in successful
-        ]
+        u_values = [_best_energy_kcal(r) for _, r in successful]
         exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
 
         for model_name, (param_names, counts_attr) in MODEL_DEFS.items():

@@ -204,25 +204,25 @@ Benchmarks on the 314-molecule training set reveal two important insights:
 
 **xTB energies (baseline):**
 
-| n_conformers | Model | RMSD (kcal/mol) | Adj. R² | Time (s) |
-|--------------|-------|-----------------|---------|----------|
-| 1 | 4param | 11.09 | 0.912 | 68 |
-| 1 | 7param | 8.33 | 0.950 | 68 |
-| 1 | hybrid | 7.49 | 0.959 | 68 |
-| 1 | extended | **7.36** | **0.960** | 68 |
-| 3 | extended | 7.38 | 0.960 | 153 |
-| 5 | extended | 7.46 | 0.959 | 236 |
+| n_conformers | Model | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | Adj. R² | Time (s) |
+|--------------|-------|-----------------|----------------|--------------------|---------|----------|
+| 1 | 4param | 11.09 | 7.10 | 76.10 | 0.912 | 68 |
+| 1 | 7param | 8.33 | 4.56 | 71.03 | 0.950 | 68 |
+| 1 | hybrid | 7.49 | 4.13 | 49.31 | 0.959 | 68 |
+| 1 | extended | **7.36** | **3.95** | **49.11** | **0.960** | 68 |
+| 3 | extended | 7.38 | 3.96 | 49.12 | 0.960 | 153 |
+| 5 | extended | 7.46 | 3.98 | 52.13 | 0.959 | 236 |
 
 **gxtb energies (refined):**
 
-| n_conformers | Model | RMSD (kcal/mol) | Adj. R² | Time (s) |
-|--------------|-------|-----------------|---------|----------|
-| 1 | 4param | 4.01 | 0.989 | 78 |
-| 1 | 7param | 3.40 | 0.992 | 78 |
-| 1 | hybrid | 3.54 | 0.991 | 78 |
-| 1 | extended | **3.43** | **0.991** | 78 |
-| 3 | extended | 3.43 | 0.991 | 161 |
-| 5 | extended | 3.43 | 0.991 | 242 |
+| n_conformers | Model | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | Adj. R² | Time (s) |
+|--------------|-------|-----------------|----------------|--------------------|---------|----------|
+| 1 | 4param | 4.01 | 3.02 | 15.00 | 0.989 | 78 |
+| 1 | 7param | **3.40** | **2.43** | **13.59** | **0.992** | 78 |
+| 1 | hybrid | 3.54 | 2.47 | 13.78 | 0.991 | 78 |
+| 1 | extended | 3.43 | 2.43 | 14.14 | 0.991 | 78 |
+| 3 | extended | 3.43 | 2.42 | 14.13 | 0.991 | 161 |
+| 5 | extended | 3.43 | 2.42 | 14.34 | 0.991 | 242 |
 
 **Recommendations:**
 - Use `--n-conformers 1` for both fitting and prediction (now the default)

@@ -12,7 +12,9 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torchtnt")
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*warp\\.vec.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="warp")
 
-HARTREE_TO_EV = 27.211386245988  # 1 Hartree = HARTREE_TO_EV eV
+from deltahf.constants import HARTREE_TO_EV
+
+DEFAULT_MAX_STEPS = 250
 
 
 @dataclass
@@ -107,14 +109,14 @@ def run_mlip_optimization(
     xyz_path: Path,
     model: str,
     predictor,
-    fmax: float = 0.01,
+    fmax: float = 0.05,
     timeout: int = 300,
     charge: int = 0,
     spin: int = 1,
 ) -> UmaResult:
-    """Optimize geometry using an MLIP via ASE's BFGS optimizer.
+    """Optimize geometry using an MLIP via ASE's L-BFGS optimizer.
 
-    Reads xyz_path, attaches the appropriate ASE calculator, runs BFGS
+    Reads xyz_path, attaches the appropriate ASE calculator, runs L-BFGS
     to convergence, writes the optimized geometry to uma_opt.xyz in the
     same directory, and returns energy (Hartree) and path.
 
@@ -133,7 +135,7 @@ def run_mlip_optimization(
     """
     try:
         from ase.io import read, write
-        from ase.optimize import BFGS
+        from ase.optimize import LBFGS
     except ImportError:
         raise ImportError("ASE not available. Install with: pip install ase")
 
@@ -165,11 +167,11 @@ def run_mlip_optimization(
             stdout=f"Failed to set up {model} calculator: {e}",
         )
 
-    # Run BFGS optimization
+    # Run L-BFGS optimization
     log_lines = []
     try:
-        opt = BFGS(atoms, logfile=None)
-        opt.run(fmax=fmax)
+        opt = LBFGS(atoms, logfile=None)
+        opt.run(fmax=fmax, steps=DEFAULT_MAX_STEPS)
         energy_ev = atoms.get_potential_energy()
         energy_hartree = energy_ev / HARTREE_TO_EV
     except Exception as e:

@@ -6,7 +6,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-HARTREE_TO_KCAL = 627.5094740631
 
 
 @dataclass

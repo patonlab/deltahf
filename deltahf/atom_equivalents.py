@@ -3,16 +3,13 @@
 import numpy as np
 from numpy.typing import NDArray
 
-HARTREE_TO_KCAL = 627.5094740631
-
-PARAM_NAMES_4 = ["C", "H", "N", "O"]
-PARAM_NAMES_7 = ["C", "H", "N", "O", "C_prime", "N_prime", "O_prime"]
-PARAM_NAMES_HYBRID = ["C_sp3", "C_sp2", "C_sp", "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp"]
-PARAM_NAMES_EXTENDED = [
-    "C_sp3_3H", "C_sp3_2H", "C_sp3_1H", "C_sp3_0H",
-    "C_sp2_2H", "C_sp2_1H", "C_sp2_0H", "C_sp",
-    "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp",
-]
+from deltahf.constants import (  # noqa: F401 (re-exported for callers)
+    HARTREE_TO_KCAL,
+    PARAM_NAMES_4,
+    PARAM_NAMES_7,
+    PARAM_NAMES_EXTENDED,
+    PARAM_NAMES_HYBRID,
+)
 
 
 def predict_dhf(u_kcal: float, atom_counts: dict[str, int], epsilon: dict[str, float]) -> float:
@@ -22,7 +19,11 @@ def predict_dhf(u_kcal: float, atom_counts: dict[str, int], epsilon: dict[str, f
 
 
 def build_design_matrix(atom_counts_list: list[dict[str, int]], param_names: list[str]) -> NDArray:
-    """Build the N × p design matrix of atom counts."""
+    """Build the N × p design matrix of atom counts.
+
+    Each row is one molecule; each column is the count of one atom type.
+    Missing atom types default to 0.
+    """
     n = len(atom_counts_list)
     p = len(param_names)
     matrix = np.zeros((n, p))
@@ -61,7 +62,12 @@ def kfold_cross_validation(
 ) -> dict:
     """Perform k-fold cross-validation of atom equivalent energies.
 
-    Returns dict with cv_error (average MSD), mean_epsilon, and fold_results.
+    Returns a dict with keys:
+      ``cv_rmsd``     — sqrt of mean per-fold MSD across held-out predictions
+      ``cv_error``    — mean per-fold MSD (= cv_rmsd²)
+      ``mean_epsilon`` — parameter means across folds
+      ``std_epsilon``  — parameter standard deviations across folds (ddof=1)
+      ``fold_results`` — list of per-fold dicts with epsilon, msd, predictions, experimental
     """
     rng = np.random.default_rng(seed)
     n = len(atom_counts_list)

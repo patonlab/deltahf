@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from deltahf.atom_equivalents import HARTREE_TO_KCAL, predict_dhf
+from deltahf.atom_equivalents import predict_dhf
+from deltahf.constants import HARTREE_TO_KCAL
 from deltahf.conformers import (
     check_connectivity,
     generate_conformers,
@@ -32,12 +33,19 @@ if TYPE_CHECKING:
 
 @dataclass
 class MoleculeResult:
+    """Result of processing a single molecule through the pipeline.
+
+    Energy fields are in Hartree (``_energy``) and kcal/mol (``_energy_kcal``).
+    For prediction, energy priority is: gxtb > mlip > xtb.
+    ``mlip_energy`` is populated for any non-xTB optimizer (UMA, eSEN, AIMNet2).
+    """
+
     smiles: str
     name: str | None = None
     xtb_energy: float | None = None
     xtb_energy_kcal: float | None = None
-    uma_energy: float | None = None       # Populated when optimizer != "xtb"
-    uma_energy_kcal: float | None = None
+    mlip_energy: float | None = None       # Populated when optimizer != "xtb"
+    mlip_energy_kcal: float | None = None
     gxtb_energy: float | None = None
     gxtb_energy_kcal: float | None = None
     atom_counts_4param: dict | None = None
@@ -52,6 +60,11 @@ class MoleculeResult:
     n_conformers_optimized: int = 0
     n_conformers_isomerized: int = 0
     error: str | None = None
+
+
+def _best_energy_kcal(result: "MoleculeResult") -> float | None:
+    """Return the best available energy (kcal/mol) using priority: gxtb > mlip > xtb."""
+    return result.gxtb_energy_kcal or result.mlip_energy_kcal or result.xtb_energy_kcal
 
 
 def process_molecule(
@@ -93,18 +106,13 @@ def process_molecule(
             if cached is not None:
                 result.xtb_energy = cached.xtb_energy
                 result.xtb_energy_kcal = cached.xtb_energy_kcal
-                result.uma_energy = cached.uma_energy
-                result.uma_energy_kcal = cached.uma_energy_kcal
+                result.mlip_energy = cached.mlip_energy
+                result.mlip_energy_kcal = cached.mlip_energy_kcal
                 result.gxtb_energy = cached.gxtb_energy
                 result.gxtb_energy_kcal = cached.gxtb_energy_kcal
                 result.n_conformers_optimized = cached.n_conformers_optimized
                 result.n_conformers_isomerized = cached.n_conformers_isomerized
-                # gxtb > MLIP > xTB
-                energy_for_prediction = (
-                    result.gxtb_energy_kcal
-                    or result.uma_energy_kcal
-                    or result.xtb_energy_kcal
-                )
+                energy_for_prediction = _best_energy_kcal(result)
                 if epsilon_4param:
                     result.dhf_4param = predict_dhf(
                         energy_for_prediction, result.atom_counts_4param, epsilon_4param
@@ -173,8 +181,8 @@ def process_molecule(
             result.xtb_energy = best_energy
             result.xtb_energy_kcal = best_energy * HARTREE_TO_KCAL
         else:
-            result.uma_energy = best_energy
-            result.uma_energy_kcal = best_energy * HARTREE_TO_KCAL
+            result.mlip_energy = best_energy
+            result.mlip_energy_kcal = best_energy * HARTREE_TO_KCAL
 
         # Optionally run gxtb single-point energy calculation on the best conformer
         if use_gxtb and best_xyz_path is not None:
@@ -204,8 +212,8 @@ def process_molecule(
                     charge=charge,
                     gxtb_energy=result.gxtb_energy,
                     gxtb_energy_kcal=result.gxtb_energy_kcal,
-                    uma_energy=result.uma_energy,
-                    uma_energy_kcal=result.uma_energy_kcal,
+                    mlip_energy=result.mlip_energy,
+                    mlip_energy_kcal=result.mlip_energy_kcal,
                 )
             )
             cache.save()
@@ -214,12 +222,7 @@ def process_molecule(
             wbos = parse_wbo_file(best_wbo_path)
             result.atom_counts_7param = classify_atoms_7param_from_wbo(smiles, wbos)
 
-        # gxtb > MLIP > xTB
-        energy_for_prediction = (
-            result.gxtb_energy_kcal
-            or result.uma_energy_kcal
-            or result.xtb_energy_kcal
-        )
+        energy_for_prediction = _best_energy_kcal(result)
 
         if epsilon_4param:
             result.dhf_4param = predict_dhf(energy_for_prediction, result.atom_counts_4param, epsilon_4param)
@@ -251,7 +254,14 @@ def process_csv(
     cache: ResultCache | None = None,
     verbose: bool = False,
 ) -> pd.DataFrame:
-    """Process a CSV of SMILES and return results."""
+    """Process a CSV of SMILES and return a DataFrame of MoleculeResult fields.
+
+    Reads ``smiles`` (required) and ``name`` (optional) columns from ``csv_path``.
+    Calls ``process_molecule()`` for each row, forwarding all optimizer/cache args.
+    If ``output_path`` is given, writes the results DataFrame to CSV before returning.
+    The ``predictor`` object (pre-loaded MLIP model) should be passed when
+    ``optimizer`` is not ``"xtb"``; it is expensive to load per-molecule.
+    """
     df = pd.read_csv(csv_path)
     results = []
 

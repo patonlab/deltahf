@@ -23,8 +23,8 @@ class CachedResult:
     charge: int
     gxtb_energy: float | None = None
     gxtb_energy_kcal: float | None = None
-    uma_energy: float | None = None
-    uma_energy_kcal: float | None = None
+    mlip_energy: float | None = None
+    mlip_energy_kcal: float | None = None
     optimizer: str = "xtb"  # Optimizer used to generate this cache entry
 
 
@@ -85,8 +85,9 @@ class ResultCache:
             charge=entry["charge"],
             gxtb_energy=entry.get("gxtb_energy"),
             gxtb_energy_kcal=entry.get("gxtb_energy_kcal"),
-            uma_energy=entry.get("uma_energy"),
-            uma_energy_kcal=entry.get("uma_energy_kcal"),
+            # "mlip_energy" renamed from "uma_energy"; fall back for old cache files
+            mlip_energy=entry.get("mlip_energy", entry.get("uma_energy")),
+            mlip_energy_kcal=entry.get("mlip_energy_kcal", entry.get("uma_energy_kcal")),
             optimizer=cached_optimizer,
         )
 
@@ -104,6 +105,6 @@ class ResultCache:
             "charge": result.charge,
             "gxtb_energy": result.gxtb_energy,
             "gxtb_energy_kcal": result.gxtb_energy_kcal,
-            "uma_energy": result.uma_energy,
-            "uma_energy_kcal": result.uma_energy_kcal,
+            "mlip_energy": result.mlip_energy,
+            "mlip_energy_kcal": result.mlip_energy_kcal,
         }

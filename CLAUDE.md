@@ -17,7 +17,7 @@ Core runtime dependencies: RDKit, NumPy, pandas. Development: pytest, ruff.
 **Optional CLI dependency:** gxtb for refined single-point energies after xTB optimization. Requires manual installation from source (see gxtb documentation). Enable with `--use-gxtb` flag.
 
 **Optional MLIP optimizers:** Alternative geometry optimizers via ASE can replace xTB using `--optimizer uma|esen|aimnet2`:
-- `uma` / `esen`: Requires `fairchem-core` (pip) and model `.pt` files. Set `MODEL_DIR` environment variable to the directory containing the model files.
+- `uma` / `esen`: Requires `fairchem-core` (pip) and model `.pt` files. Set `MODEL_DIR` environment variable (or `.env` file) to the directory containing the model files.
 - `aimnet2`: Requires `aimnet2calc` (pip).
 - MLIP energies are in eV (converted internally to Hartree); they are on a completely different scale from xTB and gxtb energies. Cache directories are automatically isolated per optimizer.
 - `--use-xtb-wbos` is incompatible with non-xTB optimizers.
@@ -57,7 +57,7 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 ### Common CLI Flags
 
 - `--model`: `4param`, `7param`, `hybrid`, `extended`, `both` (4+7), or `all` (for `fit`); single model for `predict`
-- `--n-conformers N`: Number of ETKDG conformers to optimize with xTB (default: 1)
+- `--n-conformers N`: Number of ETKDG conformers to optimize (default: 1)
 - `--optimizer`: `xtb` (default), `uma`, `esen`, or `aimnet2`. Selects the geometry optimizer. Non-xTB optimizers require optional dependencies (see Dependencies).
 - `--cache-dir PATH`: Cache results as JSON for restart capability. Automatically suffixed with `_xtb`, `_uma`, `_esen`, etc. (plus `_gxtb` if applicable).
 - `--use-xtb-wbos`: Use xTB Wiberg bond orders for 7-param classification instead of RDKit (disables caching; incompatible with non-xTB optimizers)
@@ -83,23 +83,24 @@ Parameters with zero training examples are automatically excluded from fitting, 
 
 ### Pipeline Flow
 
-Per molecule: SMILES → RDKit mol → ETKDG conformers → MMFF ranking → optimizer (xTB or MLIP) optimization of lowest n → connectivity check (detect isomerization) → optional gxtb single-point → atom equivalent ΔHf prediction.
+Per molecule: SMILES → RDKit mol → ETKDG conformers → MMFF ranking → optimizer (xTB or MLIP) of lowest n conformers → connectivity check (detect isomerization) → optional gxtb single-point → atom equivalent ΔHf prediction.
 
 ### Key Modules
 
+- `deltahf/constants.py` — single source of truth for `HARTREE_TO_KCAL`, `HARTREE_TO_EV`, `PARAM_NAMES_*`, and `MODEL_DEFS`. No deltahf imports (leaf module).
 - `deltahf/smiles.py` — SMILES→mol, `count_atoms()` (4-param), `classify_atoms_7param()`, `classify_atoms_hybrid()`, `classify_atoms_extended()`
 - `deltahf/conformers.py` — ETKDG conformer generation, MMFF energy ranking, XYZ file writing
 - `deltahf/xtb.py` — xTB CLI subprocess wrapper, energy parsing (regex on stdout), Wiberg bond order parsing
-- `deltahf/uma.py` — MLIP optimizer wrapper via FAIRChem/AIMNet2 + ASE (`load_mlip_model()`, `run_mlip_optimization()`); energies in eV converted to Hartree
+- `deltahf/uma.py` — MLIP optimizer via FAIRChem/AIMNet2 + ASE. Uses L-BFGS with `fmax=0.05` eV/Å and `DEFAULT_MAX_STEPS=250`. Loads `MODEL_DIR` from `.env` via python-dotenv. Sets `charge` and `spin` in `atoms.info` for FAIRChem. Writes plain XYZ (`format="xyz"`) for RDKit compatibility.
 - `deltahf/atom_equivalents.py` — least-squares fitting (`np.linalg.lstsq`), k-fold CV with RMSD and epsilon standard errors, adjusted R², RMSD/MAD/max deviation statistics
-- `deltahf/pipeline.py` — end-to-end orchestration: `process_molecule()`, `process_csv()`
-- `deltahf/cache.py` — JSON-based result caching for optimizer runs (enables restart capability)
-- `deltahf/__main__.py` — CLI with `fit` and `predict` subcommands
+- `deltahf/pipeline.py` — end-to-end orchestration: `process_molecule()`, `process_csv()`. `MoleculeResult` carries both `xtb_energy` and `mlip_energy` fields (`mlip_energy` covers UMA, eSEN, AIMNet2). Energy priority via `_best_energy_kcal()`: gxtb > mlip > xtb. Charge is auto-detected from SMILES via `Chem.GetFormalCharge()`.
+- `deltahf/cache.py` — JSON-based result caching. Cache key is canonical SMILES; lookup validates `n_conformers`, `optimizer`, and `charge` for correctness. Old cache entries without `optimizer` field default to `"xtb"` for backwards compatibility.
+- `deltahf/__main__.py` — CLI with `fit` and `predict` subcommands. MLIP model loaded once before the molecule loop (expensive); passed through to `process_molecule()`.
 - `deltahf/data/` — 314-molecule training dataset (CSV) and `load_training_data()` helper
 
 ### Constants
 
-`HARTREE_TO_KCAL = 627.5094740631` defined in both `xtb.py` and `atom_equivalents.py`.
+All physical constants and model definitions live in `deltahf/constants.py` (the only module with no deltahf imports): `HARTREE_TO_KCAL = 627.5094740631`, `HARTREE_TO_EV = 27.211386245988`, `PARAM_NAMES_*`, and `MODEL_DEFS`. Other modules import from there; `atom_equivalents.py` re-exports `PARAM_NAMES_*` for backwards compatibility.
 
 ### Bond Order Classification (7-param)
 
@@ -123,34 +124,34 @@ Categories: `energetic` (45), `small_CHNO` (57), `cyclic_HC` (189), `strained_3r
 
 `benchmark.py` (in the repo root) measures how `n_conformers` affects accuracy and runtime:
 
-- Tests with `n_conformers` = 1, 3, 5, 10
+- Tests with `n_conformers` = 1, 3, 5
 - Runs full fitting workflow with 10-fold CV for all four models
 - Reports Adj. R², RMSD, MAD, max deviation, CV RMSD, and wall time for each configuration
 - Outputs `benchmark_results.csv` with comparative results
-- Uses separate cache directories per `n_conformers` (`.benchmark_cache/n1/`, etc.) to enable restart capability
+- Uses separate cache directories per `n_conformers` in `.benchmark_cache/` to enable restart capability
 
 ## Cache Mechanism
 
-Both `fit` and `predict` commands support `--cache-dir` to cache xTB results:
+Both `fit` and `predict` commands support `--cache-dir` to cache optimizer results:
 
-- Each molecule's xTB results (energy, coordinates, Wiberg bond orders) are saved as JSON
-- Enables restarting failed runs without re-running expensive xTB calculations
-- Cache key is based on SMILES string and `n_conformers`
-- Used extensively in `benchmark.py` to avoid redundant xTB calls
+- Each molecule's results are saved as JSON keyed by canonical SMILES
+- Lookup validates `n_conformers`, `optimizer`, and `charge` — mismatches result in a cache miss
+- Enables restarting failed runs without re-running expensive optimizations
 - **Important:** Caching is automatically disabled when `--use-xtb-wbos` is set
 
 ## Output Formats
 
 **fit --csv**: Adds columns to input CSV:
-- `xtb_energy_eh`, `xtb_energy_kcal_mol`: xTB total energies
+- `xtb_energy_eh`, `xtb_energy_kcal_mol`: xTB total energies (when `--optimizer xtb`)
+- `mlip_energy_eh`, `mlip_energy_kcal_mol`: MLIP total energies (when `--optimizer uma/esen/aimnet2`; field is named `mlip_energy` regardless of specific MLIP used)
 - `gxtb_energy_eh`, `gxtb_energy_kcal_mol`: gxtb single-point energies (if `--use-gxtb` is set)
-- `pred_dhf_4param`, `pred_dhf_7param`, etc.: Predicted ΔHf° for each model (kcal/mol, uses gxtb energy if available)
+- `pred_dhf_4param`, `pred_dhf_7param`, etc.: Predicted ΔHf° for each model (kcal/mol)
 - `error_4param`, `error_7param`, etc.: Prediction error (pred - exp) for each model
 - `error`: Error message for failed molecules (None if successful)
 
 **predict -o**: Creates CSV with columns:
 - All input columns (including `smiles`, `name` if present)
-- `xtb_energy_kcal_mol`: xTB energy
+- `xtb_energy_kcal_mol` or `mlip_energy_kcal_mol`: optimizer energy
 - `gxtb_energy_kcal_mol`: gxtb single-point energy (if `--use-gxtb` is set)
-- `pred_dhf_kcal_mol`: Predicted ΔHf° using specified model (uses gxtb energy if available)
+- `pred_dhf_kcal_mol`: Predicted ΔHf° using specified model
 - `error`: Error message (None if successful)

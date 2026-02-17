@@ -26,12 +26,12 @@ class TestParser:
         args = build_parser().parse_args(["fit", "-i", "training.csv"])
         assert args.model == "both"
         assert args.kfold == 10
-        assert args.n_conformers == 5
+        assert args.n_conformers == 1
 
     def test_predict_defaults(self):
         args = build_parser().parse_args(["predict", "-i", "mol.csv", "--epsilon", "e.json"])
         assert args.model == "4param"
-        assert args.n_conformers == 5
+        assert args.n_conformers == 1
 
     def test_no_subcommand_prints_help(self, capsys):
         with pytest.raises(SystemExit):

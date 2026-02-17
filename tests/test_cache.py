@@ -1,4 +1,4 @@
-"""Tests for xTB result caching."""
+"""Tests for geometry optimization result caching (xTB and MLIP)."""
 
 from unittest.mock import patch
 
@@ -41,10 +41,10 @@ class TestResultCache:
         cache.store(_make_cached_result(n_conformers=5))
         assert cache.lookup("CCO", n_conformers=10) is None
 
-    def test_lookup_wrong_gfn_returns_none(self, tmp_path):
+    def test_lookup_wrong_optimizer_returns_none(self, tmp_path):
         cache = ResultCache(tmp_path)
-        cache.store(_make_cached_result(gfn_level=2))
-        assert cache.lookup("CCO", n_conformers=5, gfn=1) is None
+        cache.store(_make_cached_result(optimizer="xtb"))
+        assert cache.lookup("CCO", n_conformers=5, optimizer="uma") is None
 
     def test_lookup_wrong_charge_returns_none(self, tmp_path):
         cache = ResultCache(tmp_path)

@@ -6,10 +6,6 @@ import sys
 from pathlib import Path
 
 from deltahf.atom_equivalents import (
-    PARAM_NAMES_4,
-    PARAM_NAMES_7,
-    PARAM_NAMES_EXTENDED,
-    PARAM_NAMES_HYBRID,
     fit_atom_equivalents,
     kfold_cross_validation,
     max_abs_deviation,
@@ -17,15 +13,8 @@ from deltahf.atom_equivalents import (
     r_squared,
     rmsd,
 )
-from deltahf.pipeline import process_csv, process_molecule
-
-# Map model name -> (PARAM_NAMES, atom_counts field on MoleculeResult)
-MODEL_DEFS = {
-    "4param": (PARAM_NAMES_4, "atom_counts_4param"),
-    "7param": (PARAM_NAMES_7, "atom_counts_7param"),
-    "hybrid": (PARAM_NAMES_HYBRID, "atom_counts_hybrid"),
-    "extended": (PARAM_NAMES_EXTENDED, "atom_counts_extended"),
-}
+from deltahf.constants import MODEL_DEFS
+from deltahf.pipeline import _best_energy_kcal, process_csv, process_molecule
 
 # Which models each --model choice expands to
 MODEL_GROUPS = {
@@ -261,7 +250,7 @@ def cmd_fit(args):
             if result.error:
                 print(f"         ERROR: {result.error}")
             else:
-                opt_energy = result.xtb_energy if args.optimizer == "xtb" else result.uma_energy
+                opt_energy = result.xtb_energy if args.optimizer == "xtb" else result.mlip_energy
                 print(f"         {args.optimizer} energy: {opt_energy:.6f} Eh")
                 if result.gxtb_energy is not None:
                     print(f"         gxtb energy: {result.gxtb_energy:.6f} Eh")
@@ -306,11 +295,7 @@ def cmd_fit(args):
         sys.exit(1)
 
     indices = [i for i, _ in successful]
-    # Energy priority: gxtb > MLIP > xTB
-    u_values = [
-        (r.gxtb_energy_kcal or r.uma_energy_kcal or r.xtb_energy_kcal)
-        for _, r in successful
-    ]
+    u_values = [_best_energy_kcal(r) for _, r in successful]
     exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
 
     output = {}
@@ -477,7 +462,7 @@ def cmd_predict(args):
     if args.optimizer == "xtb":
         display_cols.append("xtb_energy_kcal")
     else:
-        display_cols.append("uma_energy_kcal")
+        display_cols.append("mlip_energy_kcal")
     if args.use_gxtb:
         display_cols.append("gxtb_energy_kcal")
 
