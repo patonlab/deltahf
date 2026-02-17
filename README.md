@@ -194,42 +194,58 @@ This runs the full fitting workflow at `n_conformers` = 1, 3, 5, timing each run
 
 ### Key Findings
 
-Benchmarks on the 314-molecule training set reveal two important insights:
+Benchmarks on the 314-molecule training set (n_conformers = 1, 3, 5) reveal three important insights:
 
-1. **Number of conformers has minimal impact on accuracy** — Increasing from 1 to 5 conformers provides essentially no improvement in predictive accuracy, while increasing computational cost linearly.
+1. **Number of conformers has minimal impact on accuracy** — Increasing from 1 to 5 conformers provides essentially no improvement in predictive accuracy, while increasing computational cost ~3–4×.
 
-2. **gxtb single-point energies significantly improve accuracy** — Computing gxtb (wB97M-V/def2-TZVPPD) single-point energies on xTB-optimized geometries reduces RMSD by ~50% with only ~14% additional computational cost.
+2. **Higher-level energies significantly improve accuracy** — Both gxtb (wB97M-V/def2-TZVPPD single-points on xTB geometries) and UMA (MLIP optimization on GPU) reduce RMSD by ~50–65% compared to xTB, with UMA achieving the best absolute accuracy.
+
+3. **UMA (MLIP) gives the best accuracy** — UMA optimization yields RMSD ~2.6 kcal/mol vs ~3.4 kcal/mol for gxtb and ~7.4 kcal/mol for xTB (extended model, n=1), at the cost of requiring a GPU.
 
 ### Results Summary
 
-**xTB energies (baseline):**
+Times are shown relative to n_conformers = 1 for each method.
 
-| n_conformers | Model | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | Adj. R² | Time (s) |
-|--------------|-------|-----------------|----------------|--------------------|---------|----------|
-| 1 | 4param | 11.09 | 7.10 | 76.10 | 0.912 | 68 |
-| 1 | 7param | 8.33 | 4.56 | 71.03 | 0.950 | 68 |
-| 1 | hybrid | 7.49 | 4.13 | 49.31 | 0.959 | 68 |
-| 1 | extended | **7.36** | **3.95** | **49.11** | **0.960** | 68 |
-| 3 | extended | 7.38 | 3.96 | 49.12 | 0.960 | 153 |
-| 5 | extended | 7.46 | 3.98 | 52.13 | 0.959 | 236 |
+**xTB energies (GFN2-xTB optimization, CPU):**
 
-**gxtb energies (refined):**
+| n_conformers | Model | n_params | Adj. R² | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | CV RMSD | Rel. Time |
+|:---:|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | 4param | 4 | 0.912 | 11.09 | 7.10 | 76.10 | 11.46 | 1.0× |
+| 1 | 7param | 7 | 0.950 | 8.33 | 4.56 | 71.03 | 8.87 | 1.0× |
+| 1 | hybrid | 9 | 0.959 | 7.49 | 4.13 | 49.31 | 8.26 | 1.0× |
+| 1 | extended | 14 | **0.960** | **7.36** | **3.95** | **49.11** | **8.22** | 1.0× |
+| 3 | extended | 14 | 0.960 | 7.38 | 3.96 | 49.12 | 8.25 | 2.2× |
+| 5 | extended | 14 | 0.959 | 7.46 | 3.98 | 52.13 | 8.35 | 3.5× |
 
-| n_conformers | Model | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | Adj. R² | Time (s) |
-|--------------|-------|-----------------|----------------|--------------------|---------|----------|
-| 1 | 4param | 4.01 | 3.02 | 15.00 | 0.989 | 78 |
-| 1 | 7param | **3.40** | **2.43** | **13.59** | **0.992** | 78 |
-| 1 | hybrid | 3.54 | 2.47 | 13.78 | 0.991 | 78 |
-| 1 | extended | 3.43 | 2.43 | 14.14 | 0.991 | 78 |
-| 3 | extended | 3.43 | 2.42 | 14.13 | 0.991 | 161 |
-| 5 | extended | 3.43 | 2.42 | 14.34 | 0.991 | 242 |
+**gxtb energies (xTB geometry + wB97M-V/def2-TZVPPD single-point, CPU):**
+
+| n_conformers | Model | n_params | Adj. R² | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | CV RMSD | Rel. Time |
+|:---:|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | 4param | 4 | 0.989 | 4.01 | 3.02 | 15.00 | 4.16 | 1.0× |
+| 1 | 7param | 7 | **0.992** | **3.40** | **2.43** | **13.59** | **3.61** | 1.0× |
+| 1 | hybrid | 9 | 0.991 | 3.54 | 2.47 | 13.78 | 3.84 | 1.0× |
+| 1 | extended | 14 | 0.991 | 3.43 | 2.43 | 14.14 | 3.81 | 1.0× |
+| 3 | extended | 14 | 0.991 | 3.43 | 2.42 | 14.13 | 3.81 | 2.1× |
+| 5 | extended | 14 | 0.991 | 3.43 | 2.42 | 14.34 | 3.81 | 3.1× |
+
+**UMA energies (MLIP optimization, GPU):**
+
+| n_conformers | Model | n_params | Adj. R² | RMSD (kcal/mol) | MAD (kcal/mol) | Max Dev (kcal/mol) | CV RMSD | Rel. Time |
+|:---:|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | 4param | 4 | 0.993 | 3.11 | 2.24 | 12.04 | 3.26 | 1.0× |
+| 1 | 7param | 7 | 0.995 | 2.77 | 1.88 | 11.10 | 2.93 | 1.0× |
+| 1 | hybrid | 9 | 0.994 | 2.78 | 1.85 | 11.66 | 2.95 | 1.0× |
+| 1 | extended | 14 | **0.995** | **2.62** | **1.80** | **11.54** | **2.85** | 1.0× |
+| 3 | extended | 14 | 0.995 | 2.62 | 1.80 | 11.57 | 2.86 | 2.6× |
+| 5 | extended | 14 | **0.995** | **2.58** | **1.77** | **11.38** | **2.79** | 4.1× |
 
 **Recommendations:**
-- Use `--n-conformers 1` for both fitting and prediction (now the default)
-- Use `--use-gxtb` for improved accuracy if gxtb is available
-- The extended model provides the best performance, but 7param is nearly as good with fewer parameters
+- Use `--n-conformers 1` for all methods (now the default) — additional conformers give negligible accuracy gains
+- Use `--optimizer uma` for best accuracy if a GPU is available
+- Use `--use-gxtb` for improved accuracy over xTB without requiring a GPU
+- The extended model gives the best accuracy, but 7param is nearly as good with fewer parameters
 
-Complete benchmark results: [xtb_benchmark_results.md](xtb_benchmark_results.md) | [gxtb_benchmark_results.md](gxtb_benchmark_results.md)
+Complete benchmark results: [xtb_benchmark_results.md](xtb_benchmark_results.md) | [gxtb_benchmark_results.md](gxtb_benchmark_results.md) | [uma_benchmark_results.md](uma_benchmark_results.md)
 
 ## Pipeline
 
