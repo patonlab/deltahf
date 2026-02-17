@@ -38,12 +38,19 @@ MODEL_DEFS = {
 }
 
 
-def run_benchmark(use_gxtb: bool = False):
+def run_benchmark(optimizer: str = "xtb", use_gxtb: bool = False):
     df = load_training_data()
     print(f"Loaded {len(df)} molecules")
+    print(f"Optimizer: {optimizer}")
     if use_gxtb:
-        print("Using gxtb single-point energies (wB97M-V/def2-TZVPPD approximation)\n")
-    else:
+        print("Energy: gxtb single-point energies (wB97M-V/def2-TZVPPD approximation)")
+    print()
+
+    predictor = None
+    if optimizer != "xtb":
+        from deltahf.uma import load_mlip_model
+        print(f"Loading {optimizer} model...")
+        predictor = load_mlip_model(optimizer)
         print()
 
     benchmark_rows = []
@@ -53,8 +60,11 @@ def run_benchmark(use_gxtb: bool = False):
         print(f"  n_conformers = {n_conf}")
         print(f"{'=' * 60}")
 
-        # Use separate cache directories for xTB vs gxtb
-        method_suffix = "_gxtb" if use_gxtb else "_xtb"
+        # Use separate cache directories per optimizer/energy method
+        method_parts = [optimizer]
+        if use_gxtb:
+            method_parts.append("gxtb")
+        method_suffix = "_" + "_".join(method_parts)
         cache = ResultCache(Path(f".benchmark_cache/n{n_conf}{method_suffix}"))
 
         t0 = time.time()
@@ -65,6 +75,8 @@ def run_benchmark(use_gxtb: bool = False):
                 row["smiles"],
                 n_conformers=n_conf,
                 name=row.get("name", None),
+                optimizer=optimizer,
+                predictor=predictor,
                 use_gxtb=use_gxtb,
                 cache=cache,
             )
@@ -80,9 +92,9 @@ def run_benchmark(use_gxtb: bool = False):
             print(f"  {len(errors)} failed: {errors[0]}")
 
         indices = [i for i, _ in successful]
-        # Use gxtb energy if available, otherwise fall back to xtb energy
+        # Energy priority: gxtb > MLIP > xTB
         u_values = [
-            (r.gxtb_energy_kcal if r.gxtb_energy_kcal is not None else r.xtb_energy_kcal)
+            (r.gxtb_energy_kcal or r.uma_energy_kcal or r.xtb_energy_kcal)
             for _, r in successful
         ]
         exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
@@ -153,5 +165,9 @@ if __name__ == "__main__":
         "--use-gxtb", action="store_true",
         help="Use gxtb single-point energies (wB97M-V/def2-TZVPPD approximation)",
     )
+    parser.add_argument(
+        "--optimizer", choices=["xtb", "uma", "esen", "aimnet2"], default="xtb",
+        help="Geometry optimizer to benchmark (default: xtb)",
+    )
     args = parser.parse_args()
-    run_benchmark(use_gxtb=args.use_gxtb)
+    run_benchmark(optimizer=args.optimizer, use_gxtb=args.use_gxtb)

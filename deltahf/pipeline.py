@@ -1,4 +1,4 @@
-"""End-to-end pipeline orchestrating SMILES -> conformers -> xTB -> DHf prediction."""
+"""End-to-end pipeline orchestrating SMILES -> conformers -> optimizer -> DHf prediction."""
 
 from __future__ import annotations
 
@@ -36,6 +36,8 @@ class MoleculeResult:
     name: str | None = None
     xtb_energy: float | None = None
     xtb_energy_kcal: float | None = None
+    uma_energy: float | None = None       # Populated when optimizer != "xtb"
+    uma_energy_kcal: float | None = None
     gxtb_energy: float | None = None
     gxtb_energy_kcal: float | None = None
     atom_counts_4param: dict | None = None
@@ -54,7 +56,7 @@ class MoleculeResult:
 
 def process_molecule(
     smiles: str,
-    n_conformers: int = 5,
+    n_conformers: int = 1,
     num_initial_confs: int = 50,
     epsilon_4param: dict | None = None,
     epsilon_7param: dict | None = None,
@@ -62,6 +64,8 @@ def process_molecule(
     epsilon_extended: dict | None = None,
     work_dir: Path | None = None,
     name: str | None = None,
+    optimizer: str = "xtb",
+    predictor=None,
     use_xtb_wbos: bool = False,
     use_gxtb: bool = False,
     cache: ResultCache | None = None,
@@ -80,18 +84,27 @@ def process_molecule(
         result.atom_counts_hybrid = classify_atoms_hybrid(smiles)
         result.atom_counts_extended = classify_atoms_extended(smiles)
 
-        # Check cache before running xTB
+        from rdkit import Chem as _Chem
+        charge = _Chem.GetFormalCharge(_Chem.MolFromSmiles(smiles))
+
+        # Check cache before running optimizer
         if cache is not None and not use_xtb_wbos:
-            cached = cache.lookup(smiles, n_conformers)
+            cached = cache.lookup(smiles, n_conformers, optimizer=optimizer, charge=charge)
             if cached is not None:
                 result.xtb_energy = cached.xtb_energy
                 result.xtb_energy_kcal = cached.xtb_energy_kcal
+                result.uma_energy = cached.uma_energy
+                result.uma_energy_kcal = cached.uma_energy_kcal
                 result.gxtb_energy = cached.gxtb_energy
                 result.gxtb_energy_kcal = cached.gxtb_energy_kcal
                 result.n_conformers_optimized = cached.n_conformers_optimized
                 result.n_conformers_isomerized = cached.n_conformers_isomerized
-                # Use gxtb energy for predictions if available, otherwise fall back to xtb
-                energy_for_prediction = result.gxtb_energy_kcal if result.gxtb_energy_kcal is not None else result.xtb_energy_kcal
+                # gxtb > MLIP > xTB
+                energy_for_prediction = (
+                    result.gxtb_energy_kcal
+                    or result.uma_energy_kcal
+                    or result.xtb_energy_kcal
+                )
                 if epsilon_4param:
                     result.dhf_4param = predict_dhf(
                         energy_for_prediction, result.atom_counts_4param, epsilon_4param
@@ -128,16 +141,23 @@ def process_molecule(
             xyz_path = conf_dir / "input.xyz"
             write_xyz(mol, cid, xyz_path)
 
-            xtb_result = run_xtb_optimization(xyz_path)
-            if xtb_result.converged:
+            if optimizer == "xtb":
+                opt_result = run_xtb_optimization(xyz_path)
+                opt_wbo_path = opt_result.wbo_path
+            else:
+                from deltahf.uma import run_mlip_optimization
+                opt_result = run_mlip_optimization(xyz_path, model=optimizer, predictor=predictor, charge=charge)
+                opt_wbo_path = None
+
+            if opt_result.converged:
                 result.n_conformers_optimized += 1
-                if xtb_result.optimized_xyz_path and not check_connectivity(mol, xtb_result.optimized_xyz_path):
+                if opt_result.optimized_xyz_path and not check_connectivity(mol, opt_result.optimized_xyz_path):
                     result.n_conformers_isomerized += 1
                     continue
-                if xtb_result.energy < best_energy:
-                    best_energy = xtb_result.energy
-                    best_wbo_path = xtb_result.wbo_path
-                    best_xyz_path = xtb_result.optimized_xyz_path
+                if opt_result.energy < best_energy:
+                    best_energy = opt_result.energy
+                    best_wbo_path = opt_wbo_path
+                    best_xyz_path = opt_result.optimized_xyz_path
 
         if best_energy == float("inf"):
             if result.n_conformers_isomerized > 0:
@@ -146,11 +166,15 @@ def process_molecule(
                     "isomerized during optimization"
                 )
             else:
-                result.error = "All xTB optimizations failed"
+                result.error = f"All {optimizer} optimizations failed"
             return result
 
-        result.xtb_energy = best_energy
-        result.xtb_energy_kcal = best_energy * HARTREE_TO_KCAL
+        if optimizer == "xtb":
+            result.xtb_energy = best_energy
+            result.xtb_energy_kcal = best_energy * HARTREE_TO_KCAL
+        else:
+            result.uma_energy = best_energy
+            result.uma_energy_kcal = best_energy * HARTREE_TO_KCAL
 
         # Optionally run gxtb single-point energy calculation on the best conformer
         if use_gxtb and best_xyz_path is not None:
@@ -170,15 +194,18 @@ def process_molecule(
             cache.store(
                 CachedResult(
                     canonical_smiles=_Chem.MolToSmiles(_Chem.MolFromSmiles(smiles)),
+                    optimizer=optimizer,
                     xtb_energy=result.xtb_energy,
                     xtb_energy_kcal=result.xtb_energy_kcal,
                     n_conformers=n_conformers,
                     n_conformers_optimized=result.n_conformers_optimized,
                     n_conformers_isomerized=result.n_conformers_isomerized,
                     gfn_level=2,
-                    charge=0,
+                    charge=charge,
                     gxtb_energy=result.gxtb_energy,
                     gxtb_energy_kcal=result.gxtb_energy_kcal,
+                    uma_energy=result.uma_energy,
+                    uma_energy_kcal=result.uma_energy_kcal,
                 )
             )
             cache.save()
@@ -187,8 +214,12 @@ def process_molecule(
             wbos = parse_wbo_file(best_wbo_path)
             result.atom_counts_7param = classify_atoms_7param_from_wbo(smiles, wbos)
 
-        # Use gxtb energy for predictions if available, otherwise fall back to xtb
-        energy_for_prediction = result.gxtb_energy_kcal if result.gxtb_energy_kcal is not None else result.xtb_energy_kcal
+        # gxtb > MLIP > xTB
+        energy_for_prediction = (
+            result.gxtb_energy_kcal
+            or result.uma_energy_kcal
+            or result.xtb_energy_kcal
+        )
 
         if epsilon_4param:
             result.dhf_4param = predict_dhf(energy_for_prediction, result.atom_counts_4param, epsilon_4param)
@@ -207,12 +238,14 @@ def process_molecule(
 
 def process_csv(
     csv_path: Path,
-    n_conformers: int = 5,
+    n_conformers: int = 1,
     epsilon_4param: dict | None = None,
     epsilon_7param: dict | None = None,
     epsilon_hybrid: dict | None = None,
     epsilon_extended: dict | None = None,
     output_path: Path | None = None,
+    optimizer: str = "xtb",
+    predictor=None,
     use_xtb_wbos: bool = False,
     use_gxtb: bool = False,
     cache: ResultCache | None = None,
@@ -240,6 +273,8 @@ def process_csv(
             epsilon_hybrid=epsilon_hybrid,
             epsilon_extended=epsilon_extended,
             name=mol_name,
+            optimizer=optimizer,
+            predictor=predictor,
             use_xtb_wbos=use_xtb_wbos,
             use_gxtb=use_gxtb,
             cache=cache,

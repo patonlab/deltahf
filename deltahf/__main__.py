@@ -125,11 +125,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fit_parser.add_argument("--kfold", type=int, default=10, help="Number of CV folds")
     fit_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
+    fit_parser.add_argument(
+        "--optimizer", choices=["xtb", "uma", "esen", "aimnet2"], default="xtb",
+        help="Geometry optimizer: 'xtb' (default, requires xTB binary), 'uma'/'esen' (requires fairchem-core and MODEL_DIR), 'aimnet2' (requires aimnet2calc)",
+    )
     fit_parser.add_argument("--output", "-o", help="Output JSON file for fitted epsilon values")
     fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
     fit_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
-        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification (requires --optimizer xtb)",
     )
     fit_parser.add_argument(
         "--use-gxtb", action="store_true",
@@ -137,7 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fit_parser.add_argument(
         "--cache-dir", type=str, default=None,
-        help="Directory for caching xTB results (enables restart capability)",
+        help="Directory for caching optimization results (enables restart capability)",
     )
     fit_parser.add_argument(
         "--verbose", "-v", action="store_true",
@@ -150,10 +154,14 @@ def build_parser() -> argparse.ArgumentParser:
     pred_parser.add_argument("--epsilon", required=False, help="JSON file with fitted epsilon values (uses defaults if not specified)")
     pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "extended"], default="4param")
     pred_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
+    pred_parser.add_argument(
+        "--optimizer", choices=["xtb", "uma", "esen", "aimnet2"], default="xtb",
+        help="Geometry optimizer. Must match the optimizer used during fit!",
+    )
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
     pred_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
-        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification (requires --optimizer xtb)",
     )
     pred_parser.add_argument(
         "--use-gxtb", action="store_true",
@@ -161,7 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pred_parser.add_argument(
         "--cache-dir", type=str, default=None,
-        help="Directory for caching xTB results (enables restart capability)",
+        help="Directory for caching optimization results (enables restart capability)",
     )
     pred_parser.add_argument(
         "--verbose", "-v", action="store_true",
@@ -175,13 +183,27 @@ def cmd_fit(args):
     """Run the fitting workflow."""
     import pandas as pd
 
-    from deltahf.xtb import find_xtb_binary
-
-    try:
-        find_xtb_binary()
-    except FileNotFoundError as e:
-        print(f"   Error: {e}")
+    if args.use_xtb_wbos and args.optimizer != "xtb":
+        print(f"   Error: --use-xtb-wbos requires --optimizer xtb (got '{args.optimizer}')")
         sys.exit(1)
+
+    predictor = None
+    if args.optimizer == "xtb":
+        from deltahf.xtb import find_xtb_binary
+        try:
+            find_xtb_binary()
+        except FileNotFoundError as e:
+            print(f"   Error: {e}")
+            sys.exit(1)
+    else:
+        from deltahf.uma import load_mlip_model
+        print(f"   Loading {args.optimizer} model...")
+        try:
+            predictor = load_mlip_model(args.optimizer)
+        except (ImportError, FileNotFoundError) as e:
+            print(f"   Error: {e}")
+            sys.exit(1)
+        print(f"   Using {args.optimizer} geometry optimizer")
 
     if args.use_gxtb:
         from deltahf.xtb import find_gxtb_binary
@@ -205,9 +227,12 @@ def cmd_fit(args):
     if args.cache_dir:
         from deltahf.cache import ResultCache
 
-        # Append method suffix to cache directory to keep xTB and gxtb separate
+        # Append method suffix to keep caches isolated per optimizer/energy method
         cache_path = Path(args.cache_dir)
-        method_suffix = "_gxtb" if args.use_gxtb else "_xtb"
+        method_parts = [args.optimizer]
+        if args.use_gxtb:
+            method_parts.append("gxtb")
+        method_suffix = "_" + "_".join(method_parts)
         if not cache_path.name.endswith(method_suffix):
             cache_path = cache_path.parent / (cache_path.name + method_suffix)
 
@@ -217,8 +242,8 @@ def cmd_fit(args):
             print("      Note: caching disabled when --use-xtb-wbos is set")
             cache = None
 
-    # Process all molecules to get xTB energies
-    print("   Running xTB optimizations...")
+    # Process all molecules
+    print(f"   Running {args.optimizer} optimizations...")
     results = []
     errors = []
     warnings = []
@@ -230,12 +255,14 @@ def cmd_fit(args):
             print(f"      [{idx + 1}/{len(df)}] {name}: {smiles}")
             result = process_molecule(
                 smiles, n_conformers=args.n_conformers, name=name,
+                optimizer=args.optimizer, predictor=predictor,
                 use_xtb_wbos=args.use_xtb_wbos, use_gxtb=args.use_gxtb, cache=cache,
             )
             if result.error:
                 print(f"         ERROR: {result.error}")
             else:
-                print(f"         xTB energy: {result.xtb_energy:.6f} Eh")
+                opt_energy = result.xtb_energy if args.optimizer == "xtb" else result.uma_energy
+                print(f"         {args.optimizer} energy: {opt_energy:.6f} Eh")
                 if result.gxtb_energy is not None:
                     print(f"         gxtb energy: {result.gxtb_energy:.6f} Eh")
                 if result.n_conformers_isomerized > 0:
@@ -249,6 +276,7 @@ def cmd_fit(args):
             name = row.get("name", f"mol_{idx}")
             result = process_molecule(
                 smiles, n_conformers=args.n_conformers, name=name,
+                optimizer=args.optimizer, predictor=predictor,
                 use_xtb_wbos=args.use_xtb_wbos, use_gxtb=args.use_gxtb, cache=cache,
             )
             if result.error:
@@ -274,13 +302,13 @@ def cmd_fit(args):
         failed = [(i, r) for i, r in enumerate(results) if r.error is not None]
         print("\n   All molecules failed. First error:")
         print(f"      {df.iloc[failed[0][0]]['name']}: {failed[0][1].error}")
-        print("\n   Is xTB on your PATH? Try: conda activate deltahf")
+        print(f"\n   Is {args.optimizer} available? Check your installation.")
         sys.exit(1)
 
     indices = [i for i, _ in successful]
-    # Use gxtb energy if available, otherwise fall back to xtb energy
+    # Energy priority: gxtb > MLIP > xTB
     u_values = [
-        (r.gxtb_energy_kcal if r.gxtb_energy_kcal is not None else r.xtb_energy_kcal)
+        (r.gxtb_energy_kcal or r.uma_energy_kcal or r.xtb_energy_kcal)
         for _, r in successful
     ]
     exp_dhf = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
@@ -296,9 +324,10 @@ def cmd_fit(args):
         output[model_name] = eps
         predicted[model_name] = pred
 
-    # Add metadata to track which method was used for fitting
+    # Add metadata to track optimizer and energy method used for fitting
     output["_metadata"] = {
-        "method": "gxtb" if args.use_gxtb else "xtb",
+        "optimizer": args.optimizer,
+        "method": "gxtb" if args.use_gxtb else args.optimizer,
         "n_conformers": args.n_conformers,
         "n_molecules": len(indices),
     }
@@ -310,7 +339,8 @@ def cmd_fit(args):
         with open(args.output, "w") as f:
             json.dump(output, f, indent=2)
         print(f"   Fitted parameters saved to {args.output}")
-        print(f"   Method: {'gxtb' if args.use_gxtb else 'xtb'}")
+        energy_method = "gxtb" if args.use_gxtb else args.optimizer
+        print(f"   Optimizer: {args.optimizer}  |  Energy method: {energy_method}")
 
     if args.csv:
         results_df = df.copy()
@@ -338,13 +368,26 @@ def cmd_fit(args):
 
 def cmd_predict(args):
     """Run the prediction workflow."""
-    from deltahf.xtb import find_xtb_binary
-
-    try:
-        find_xtb_binary()
-    except FileNotFoundError as e:
-        print(f"   Error: {e}")
+    if args.use_xtb_wbos and args.optimizer != "xtb":
+        print(f"   Error: --use-xtb-wbos requires --optimizer xtb (got '{args.optimizer}')")
         sys.exit(1)
+
+    predictor = None
+    if args.optimizer == "xtb":
+        from deltahf.xtb import find_xtb_binary
+        try:
+            find_xtb_binary()
+        except FileNotFoundError as e:
+            print(f"   Error: {e}")
+            sys.exit(1)
+    else:
+        from deltahf.uma import load_mlip_model
+        print(f"   Loading {args.optimizer} model...")
+        try:
+            predictor = load_mlip_model(args.optimizer)
+        except (ImportError, FileNotFoundError) as e:
+            print(f"   Error: {e}")
+            sys.exit(1)
 
     if args.use_gxtb:
         from deltahf.xtb import find_gxtb_binary
@@ -374,19 +417,22 @@ def cmd_predict(args):
     with open(epsilon_file) as f:
         epsilon_data = json.load(f)
 
-    # Check for method mismatch
+    # Check for method/optimizer mismatch
     metadata = epsilon_data.get("_metadata", {})
-    param_method = metadata.get("method", "xtb")  # Default to xtb for old parameter files
-    current_method = "gxtb" if args.use_gxtb else "xtb"
+    param_method = metadata.get("method", "xtb")   # energy method used during fit
+    param_optimizer = metadata.get("optimizer", metadata.get("method", "xtb"))  # optimizer used during fit
+    current_method = "gxtb" if args.use_gxtb else args.optimizer
+    current_optimizer = args.optimizer
 
-    if param_method != current_method:
+    if param_method != current_method or param_optimizer != current_optimizer:
         print(f"\n   WARNING: Method mismatch detected!")
-        print(f"   Parameters were fitted using: {param_method}")
-        print(f"   You are predicting using: {current_method}")
+        print(f"   Parameters fitted with optimizer={param_optimizer}, energy={param_method}")
+        print(f"   You are predicting with optimizer={current_optimizer}, energy={current_method}")
         print(f"   This will produce incorrect results - energies are on different scales!")
         print(f"\n   Either:")
-        print(f"     - Use {'--use-gxtb' if param_method == 'gxtb' else 'without --use-gxtb'} to match the fitting method")
-        print(f"     - Refit parameters using {current_method}\n")
+        print(f"     - Match the fit settings (--optimizer {param_optimizer}" +
+              (" --use-gxtb" if param_method == "gxtb" else "") + ")")
+        print(f"     - Refit parameters using your current settings\n")
         sys.exit(1)
 
     epsilon = epsilon_data.get(args.model, epsilon_data)
@@ -395,9 +441,12 @@ def cmd_predict(args):
     if args.cache_dir:
         from deltahf.cache import ResultCache
 
-        # Append method suffix to cache directory to keep xTB and gxtb separate
+        # Append method suffix to keep caches isolated per optimizer/energy method
         cache_path = Path(args.cache_dir)
-        method_suffix = "_gxtb" if args.use_gxtb else "_xtb"
+        method_parts = [args.optimizer]
+        if args.use_gxtb:
+            method_parts.append("gxtb")
+        method_suffix = "_" + "_".join(method_parts)
         if not cache_path.name.endswith(method_suffix):
             cache_path = cache_path.parent / (cache_path.name + method_suffix)
 
@@ -412,6 +461,8 @@ def cmd_predict(args):
         Path(args.input),
         n_conformers=args.n_conformers,
         output_path=Path(args.output) if args.output else None,
+        optimizer=args.optimizer,
+        predictor=predictor,
         use_xtb_wbos=args.use_xtb_wbos,
         use_gxtb=args.use_gxtb,
         cache=cache,
@@ -423,7 +474,10 @@ def cmd_predict(args):
     display_cols = ["smiles"]
     if "name" in results_df.columns:
         display_cols.append("name")
-    display_cols.append("xtb_energy_kcal")
+    if args.optimizer == "xtb":
+        display_cols.append("xtb_energy_kcal")
+    else:
+        display_cols.append("uma_energy_kcal")
     if args.use_gxtb:
         display_cols.append("gxtb_energy_kcal")
 

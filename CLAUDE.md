@@ -16,6 +16,12 @@ Core runtime dependencies: RDKit, NumPy, pandas. Development: pytest, ruff.
 
 **Optional CLI dependency:** gxtb for refined single-point energies after xTB optimization. Requires manual installation from source (see gxtb documentation). Enable with `--use-gxtb` flag.
 
+**Optional MLIP optimizers:** Alternative geometry optimizers via ASE can replace xTB using `--optimizer uma|esen|aimnet2`:
+- `uma` / `esen`: Requires `fairchem-core` (pip) and model `.pt` files. Set `MODEL_DIR` environment variable to the directory containing the model files.
+- `aimnet2`: Requires `aimnet2calc` (pip).
+- MLIP energies are in eV (converted internally to Hartree); they are on a completely different scale from xTB and gxtb energies. Cache directories are automatically isolated per optimizer.
+- `--use-xtb-wbos` is incompatible with non-xTB optimizers.
+
 **IMPORTANT:** gxtb and xTB energies are on completely different scales (~10-17x difference) and must NEVER be mixed. Use `--use-gxtb` consistently for both fitting AND prediction, or use only xTB (default). See `GXTB_USAGE.md` for details.
 
 ## Commands
@@ -39,8 +45,9 @@ pytest tests/test_smiles.py::TestCountAtoms::test_methane
 ruff check deltahf/ tests/
 
 # Benchmarking
-python benchmark.py  # Measures accuracy vs n_conformers (1, 3, 5, 10), outputs benchmark_results.csv
+python benchmark.py  # Measures accuracy vs n_conformers (1, 3, 5), outputs benchmark_results.csv
 python benchmark.py --use-gxtb  # Same benchmark using gxtb energies
+python benchmark.py --optimizer uma  # Benchmark with UMA optimizer
 
 # CLI usage
 python -m deltahf fit -i deltahf/data/training_data.csv --model all --kfold 10 --n-conformers 1 -o params.json
@@ -51,8 +58,9 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 
 - `--model`: `4param`, `7param`, `hybrid`, `extended`, `both` (4+7), or `all` (for `fit`); single model for `predict`
 - `--n-conformers N`: Number of ETKDG conformers to optimize with xTB (default: 1)
-- `--cache-dir PATH`: Cache results as JSON for restart capability. Automatically suffixed with `_xtb` or `_gxtb` based on method.
-- `--use-xtb-wbos`: Use xTB Wiberg bond orders for 7-param classification instead of RDKit (disables caching)
+- `--optimizer`: `xtb` (default), `uma`, `esen`, or `aimnet2`. Selects the geometry optimizer. Non-xTB optimizers require optional dependencies (see Dependencies).
+- `--cache-dir PATH`: Cache results as JSON for restart capability. Automatically suffixed with `_xtb`, `_uma`, `_esen`, etc. (plus `_gxtb` if applicable).
+- `--use-xtb-wbos`: Use xTB Wiberg bond orders for 7-param classification instead of RDKit (disables caching; incompatible with non-xTB optimizers)
 - `--use-gxtb`: Use gxtb (wB97M-V/def2-TZVPPD) energies instead of xTB. Must be used consistently for both fit AND predict! Cache directory automatically separated.
 - `--verbose, -v`: Print per-molecule details instead of progress bar
 - `--csv FILE` (fit only): Output CSV with training data + predictions + errors for each model
@@ -75,16 +83,17 @@ Parameters with zero training examples are automatically excluded from fitting, 
 
 ### Pipeline Flow
 
-Per molecule: SMILES → RDKit mol → ETKDG conformers → MMFF ranking → xTB optimization of lowest n → connectivity check (detect isomerization) → atom equivalent ΔHf prediction.
+Per molecule: SMILES → RDKit mol → ETKDG conformers → MMFF ranking → optimizer (xTB or MLIP) optimization of lowest n → connectivity check (detect isomerization) → optional gxtb single-point → atom equivalent ΔHf prediction.
 
 ### Key Modules
 
 - `deltahf/smiles.py` — SMILES→mol, `count_atoms()` (4-param), `classify_atoms_7param()`, `classify_atoms_hybrid()`, `classify_atoms_extended()`
 - `deltahf/conformers.py` — ETKDG conformer generation, MMFF energy ranking, XYZ file writing
 - `deltahf/xtb.py` — xTB CLI subprocess wrapper, energy parsing (regex on stdout), Wiberg bond order parsing
+- `deltahf/uma.py` — MLIP optimizer wrapper via FAIRChem/AIMNet2 + ASE (`load_mlip_model()`, `run_mlip_optimization()`); energies in eV converted to Hartree
 - `deltahf/atom_equivalents.py` — least-squares fitting (`np.linalg.lstsq`), k-fold CV with RMSD and epsilon standard errors, adjusted R², RMSD/MAD/max deviation statistics
 - `deltahf/pipeline.py` — end-to-end orchestration: `process_molecule()`, `process_csv()`
-- `deltahf/cache.py` — JSON-based result caching for xTB runs (enables restart capability)
+- `deltahf/cache.py` — JSON-based result caching for optimizer runs (enables restart capability)
 - `deltahf/__main__.py` — CLI with `fit` and `predict` subcommands
 - `deltahf/data/` — 314-molecule training dataset (CSV) and `load_training_data()` helper
 

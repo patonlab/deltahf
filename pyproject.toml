@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
+mlip = ["python-dotenv", "ase"]
 
 [project.scripts]
 deltahf = "deltahf.__main__:main"

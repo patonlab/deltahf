@@ -1,4 +1,4 @@
-"""Optional JSON-backed cache for xTB optimization results."""
+"""Optional JSON-backed cache for geometry optimization results (xTB or MLIP)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from rdkit import Chem
 
 @dataclass
 class CachedResult:
-    """Cached xTB result for a single molecule."""
+    """Cached geometry optimization result for a single molecule."""
 
     canonical_smiles: str
-    xtb_energy: float
-    xtb_energy_kcal: float
+    xtb_energy: float | None
+    xtb_energy_kcal: float | None
     n_conformers: int
     n_conformers_optimized: int
     n_conformers_isomerized: int
@@ -23,10 +23,13 @@ class CachedResult:
     charge: int
     gxtb_energy: float | None = None
     gxtb_energy_kcal: float | None = None
+    uma_energy: float | None = None
+    uma_energy_kcal: float | None = None
+    optimizer: str = "xtb"  # Optimizer used to generate this cache entry
 
 
 class ResultCache:
-    """JSON-backed cache for xTB optimization results."""
+    """JSON-backed cache for geometry optimization results."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir
@@ -55,25 +58,43 @@ class ResultCache:
         self,
         smiles: str,
         n_conformers: int,
-        gfn: int = 2,
+        optimizer: str = "xtb",
         charge: int = 0,
     ) -> CachedResult | None:
         key = self._make_key(smiles)
         entry = self._data.get(key)
         if entry is None:
             return None
+        # "optimizer" field added later; old xTB-only cache entries default to "xtb"
+        cached_optimizer = entry.get("optimizer", "xtb")
         if (
             entry.get("n_conformers") != n_conformers
-            or entry.get("gfn_level") != gfn
+            or cached_optimizer != optimizer
             or entry.get("charge") != charge
         ):
             return None
-        return CachedResult(**entry)
+        # Use .get() with defaults so old cache entries without new fields still load
+        return CachedResult(
+            canonical_smiles=entry["canonical_smiles"],
+            xtb_energy=entry.get("xtb_energy"),
+            xtb_energy_kcal=entry.get("xtb_energy_kcal"),
+            n_conformers=entry["n_conformers"],
+            n_conformers_optimized=entry["n_conformers_optimized"],
+            n_conformers_isomerized=entry["n_conformers_isomerized"],
+            gfn_level=entry.get("gfn_level", 2),
+            charge=entry["charge"],
+            gxtb_energy=entry.get("gxtb_energy"),
+            gxtb_energy_kcal=entry.get("gxtb_energy_kcal"),
+            uma_energy=entry.get("uma_energy"),
+            uma_energy_kcal=entry.get("uma_energy_kcal"),
+            optimizer=cached_optimizer,
+        )
 
     def store(self, result: CachedResult) -> None:
         key = self._make_key(result.canonical_smiles)
         self._data[key] = {
             "canonical_smiles": result.canonical_smiles,
+            "optimizer": result.optimizer,
             "xtb_energy": result.xtb_energy,
             "xtb_energy_kcal": result.xtb_energy_kcal,
             "n_conformers": result.n_conformers,
@@ -83,4 +104,6 @@ class ResultCache:
             "charge": result.charge,
             "gxtb_energy": result.gxtb_energy,
             "gxtb_energy_kcal": result.gxtb_energy_kcal,
+            "uma_energy": result.uma_energy,
+            "uma_energy_kcal": result.uma_energy_kcal,
         }
