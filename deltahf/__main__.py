@@ -18,12 +18,16 @@ from deltahf.pipeline import _best_energy_kcal, process_csv, process_molecule
 
 # Which models each --model choice expands to
 MODEL_GROUPS = {
-    "4param": ["4param"],
-    "7param": ["7param"],
-    "hybrid": ["hybrid"],
-    "extended": ["extended"],
-    "both": ["4param", "7param"],
-    "all": ["4param", "7param", "hybrid", "extended"],
+    "4param":           ["4param"],
+    "7param":           ["7param"],
+    "hybrid":           ["hybrid"],
+    "bondorder":        ["bondorder"],
+    "bondorder_ext":    ["bondorder_ext"],
+    "bondorder_ar":     ["bondorder_ar"],
+    "extended":         ["extended"],
+    "neighbour":        ["neighbour"],
+    "both":             ["4param", "7param"],
+    "all":              ["4param", "7param", "hybrid", "bondorder", "bondorder_ext", "bondorder_ar", "extended", "neighbour"],
 }
 
 BANNER = (
@@ -44,7 +48,36 @@ CITATIONS = """\
 SEP = "   " + "\u2500" * 50
 
 
-def _print_model_results(counts, u_values, exp_dhf, param_names, kfold):
+def _functional_group_frequencies(smiles_list):
+    """Return functional group counts across `smiles_list`, sorted descending, excluding zero-count groups."""
+    from rdkit import Chem
+    from rdkit.Chem import Fragments
+
+    nitramine    = Chem.MolFromSmarts("[NX3][N+](=O)[O-]")
+    nitroso      = Chem.MolFromSmarts("[NX2]=[OX1]")
+    tert_amine   = Chem.MolFromSmarts("[NX3;H0;!$(N=*);!$(N#*);!$([N+])]")
+    groups = [
+        ("Nitro (-NO2)",      lambda m: Fragments.fr_nitro(m) > 0),
+        ("Nitramine (N-NO2)", lambda m: m.HasSubstructMatch(nitramine)),
+        ("Nitroso (N=O)",     lambda m: m.HasSubstructMatch(nitroso)),
+        ("Primary amine",     lambda m: Fragments.fr_NH2(m) > 0),
+        ("Secondary amine",   lambda m: Fragments.fr_NH1(m) > 0),
+        ("Tertiary amine",    lambda m: m.HasSubstructMatch(tert_amine)),
+        ("Carbonyl (C=O)",    lambda m: Fragments.fr_C_O(m) > 0),
+        ("Carboxylic acid",   lambda m: Fragments.fr_COO(m) > 0),
+        ("Hydroxyl (-OH)",    lambda m: (Fragments.fr_Al_OH(m) + Fragments.fr_Ar_OH(m)) > 0),
+        ("Nitrile (-CN)",     lambda m: Fragments.fr_nitrile(m) > 0),
+        ("Aromatic ring",     lambda m: any(a.GetIsAromatic() for a in m.GetAtoms())),
+        ("3-membered ring",   lambda m: any(len(r) == 3 for r in m.GetRingInfo().AtomRings())),
+    ]
+    mols = [m for m in (Chem.MolFromSmiles(s) for s in smiles_list) if m is not None]
+    result = [(name, sum(1 for m in mols if detect(m))) for name, detect in groups]
+    result = [(name, count) for name, count in result if count > 0]
+    result.sort(key=lambda x: -x[1])
+    return result, len(mols)
+
+
+def _print_model_results(counts, u_values, exp_dhf, param_names, kfold, mol_names=None, n_outliers=0, mol_smiles=None):
     """Print fitting results for one model with formatted tables."""
     totals = {k: sum(c.get(k, 0) for c in counts) for k in param_names}
 
@@ -96,6 +129,29 @@ def _print_model_results(counts, u_values, exp_dhf, param_names, kfold):
     print(f"   {'Max deviation':<35}{max_abs_deviation(predicted, exp_dhf):>15.2f} kcal/mol")
     print(f"   {cv_label:<35}{cv['cv_rmsd']:>15.2f} kcal/mol")
 
+    if n_outliers > 0 and mol_names is not None:
+        errors_abs = [(abs(predicted[j] - exp_dhf[j]), j) for j in range(len(predicted))]
+        errors_abs.sort(reverse=True)
+        top = errors_abs[:n_outliers]
+        print()
+        print(f"   Top {len(top)} outliers by |error|:")
+        print(f"   {'Rank':<6}{'Name':<40}{'Exp ΔHf°':>12}{'Pred ΔHf°':>12}{'Error':>10}")
+        print(f"   {'─' * 82}")
+        for rank, (_, j) in enumerate(top, 1):
+            err = predicted[j] - exp_dhf[j]
+            print(f"   {rank:<6}{mol_names[j]:<40}{exp_dhf[j]:>12.2f}{predicted[j]:>12.2f}{err:>10.2f}")
+
+        if mol_smiles is not None:
+            top_smiles = [mol_smiles[j] for _, j in top]
+            fg_counts, n_fg_mols = _functional_group_frequencies(top_smiles)
+            if fg_counts:
+                print()
+                print(f"   Functional groups in outliers ({n_fg_mols} molecules):")
+                print(f"   {'Group':<25}{'Count':>6}{'%':>5}")
+                print(f"   {'─' * 38}")
+                for name, count in fg_counts:
+                    print(f"   {name:<25}{count:>6}{100 * count // n_fg_mols:>4}%")
+
     return epsilon, predicted
 
 
@@ -110,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser = subparsers.add_parser("fit", help="Fit atom equivalent energies to training data")
     fit_parser.add_argument("--input", "-i", required=True, help="CSV with smiles, exp_dhf_kcal_mol columns")
     fit_parser.add_argument(
-        "--model", choices=["4param", "7param", "hybrid", "extended", "both", "all"], default="both",
+        "--model", choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext", "bondorder_ar", "extended", "neighbour", "both", "all"], default="both",
     )
     fit_parser.add_argument("--kfold", type=int, default=10, help="Number of CV folds")
     fit_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
@@ -136,12 +192,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose", "-v", action="store_true",
         help="Print per-molecule details instead of a progress bar",
     )
+    fit_parser.add_argument(
+        "--outliers", nargs="?", const=10, default=0, type=int, metavar="N",
+        help="Print the top N outliers by |error| after each model's statistics (default N=10 if flag given)",
+    )
 
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
     pred_parser.add_argument("--input", "-i", required=True, help="CSV with smiles column")
     pred_parser.add_argument("--epsilon", required=False, help="JSON file with fitted epsilon values (uses defaults if not specified)")
-    pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "extended"], default="4param")
+    pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext", "bondorder_ar", "extended", "neighbour"], default="4param")
     pred_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
     pred_parser.add_argument(
         "--optimizer", choices=["xtb", "uma", "esen", "aimnet2"], default="xtb",
@@ -301,11 +361,16 @@ def cmd_fit(args):
     output = {}
     predicted = {}
     models_to_run = MODEL_GROUPS[args.model]
+    mol_names = [df.iloc[i].get("name", df.iloc[i]["smiles"]) for i in indices]
+    mol_smiles = [df.iloc[i]["smiles"] for i in indices]
 
     for model_name in models_to_run:
         param_names, counts_attr = MODEL_DEFS[model_name]
         counts = [getattr(results[i], counts_attr) for i in indices]
-        eps, pred = _print_model_results(counts, u_values, exp_dhf, param_names, args.kfold)
+        eps, pred = _print_model_results(
+            counts, u_values, exp_dhf, param_names, args.kfold,
+            mol_names=mol_names, n_outliers=args.outliers, mol_smiles=mol_smiles,
+        )
         output[model_name] = eps
         predicted[model_name] = pred
 
@@ -389,6 +454,8 @@ def cmd_predict(args):
         params_dir = Path(__file__).parent.parent / "params"
         if args.use_gxtb:
             epsilon_file = params_dir / "params_gxtb.json"
+        elif args.optimizer != "xtb":
+            epsilon_file = params_dir / f"params_{args.optimizer}.json"
         else:
             epsilon_file = params_dir / "params_xtb.json"
 

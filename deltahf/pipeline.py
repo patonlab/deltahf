@@ -21,8 +21,12 @@ from deltahf.conformers import (
 from deltahf.smiles import (
     classify_atoms_7param,
     classify_atoms_7param_from_wbo,
+    classify_atoms_bondorder,
+    classify_atoms_bondorder_ar,
+    classify_atoms_bondorder_ext,
     classify_atoms_extended,
     classify_atoms_hybrid,
+    classify_atoms_neighbour,
     count_atoms,
 )
 from deltahf.xtb import find_gxtb_binary, parse_wbo_file, run_gxtb_single_point, run_xtb_optimization
@@ -51,11 +55,19 @@ class MoleculeResult:
     atom_counts_4param: dict | None = None
     atom_counts_7param: dict | None = None
     atom_counts_hybrid: dict | None = None
+    atom_counts_bondorder: dict | None = None
+    atom_counts_bondorder_ext: dict | None = None
+    atom_counts_bondorder_ar: dict | None = None
     atom_counts_extended: dict | None = None
+    atom_counts_neighbour: dict | None = None
     dhf_4param: float | None = None
     dhf_7param: float | None = None
     dhf_hybrid: float | None = None
+    dhf_bondorder: float | None = None
+    dhf_bondorder_ext: float | None = None
+    dhf_bondorder_ar: float | None = None
     dhf_extended: float | None = None
+    dhf_neighbour: float | None = None
     n_conformers_generated: int = 0
     n_conformers_optimized: int = 0
     n_conformers_isomerized: int = 0
@@ -74,7 +86,11 @@ def process_molecule(
     epsilon_4param: dict | None = None,
     epsilon_7param: dict | None = None,
     epsilon_hybrid: dict | None = None,
+    epsilon_bondorder: dict | None = None,
+    epsilon_bondorder_ext: dict | None = None,
+    epsilon_bondorder_ar: dict | None = None,
     epsilon_extended: dict | None = None,
+    epsilon_neighbour: dict | None = None,
     work_dir: Path | None = None,
     name: str | None = None,
     optimizer: str = "xtb",
@@ -95,8 +111,11 @@ def process_molecule(
         if not use_xtb_wbos:
             result.atom_counts_7param = classify_atoms_7param(smiles)
         result.atom_counts_hybrid = classify_atoms_hybrid(smiles)
+        result.atom_counts_bondorder = classify_atoms_bondorder(smiles)
+        result.atom_counts_bondorder_ext = classify_atoms_bondorder_ext(smiles)
+        result.atom_counts_bondorder_ar = classify_atoms_bondorder_ar(smiles)
         result.atom_counts_extended = classify_atoms_extended(smiles)
-
+        result.atom_counts_neighbour = classify_atoms_neighbour(smiles)
         from rdkit import Chem as _Chem
         charge = _Chem.GetFormalCharge(_Chem.MolFromSmiles(smiles))
 
@@ -125,9 +144,25 @@ def process_molecule(
                     result.dhf_hybrid = predict_dhf(
                         energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid
                     )
+                if epsilon_bondorder:
+                    result.dhf_bondorder = predict_dhf(
+                        energy_for_prediction, result.atom_counts_bondorder, epsilon_bondorder
+                    )
+                if epsilon_bondorder_ext:
+                    result.dhf_bondorder_ext = predict_dhf(
+                        energy_for_prediction, result.atom_counts_bondorder_ext, epsilon_bondorder_ext
+                    )
+                if epsilon_bondorder_ar:
+                    result.dhf_bondorder_ar = predict_dhf(
+                        energy_for_prediction, result.atom_counts_bondorder_ar, epsilon_bondorder_ar
+                    )
                 if epsilon_extended:
                     result.dhf_extended = predict_dhf(
                         energy_for_prediction, result.atom_counts_extended, epsilon_extended
+                    )
+                if epsilon_neighbour:
+                    result.dhf_neighbour = predict_dhf(
+                        energy_for_prediction, result.atom_counts_neighbour, epsilon_neighbour
                     )
                 return result
 
@@ -230,8 +265,16 @@ def process_molecule(
             result.dhf_7param = predict_dhf(energy_for_prediction, result.atom_counts_7param, epsilon_7param)
         if epsilon_hybrid:
             result.dhf_hybrid = predict_dhf(energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid)
+        if epsilon_bondorder:
+            result.dhf_bondorder = predict_dhf(energy_for_prediction, result.atom_counts_bondorder, epsilon_bondorder)
+        if epsilon_bondorder_ext:
+            result.dhf_bondorder_ext = predict_dhf(energy_for_prediction, result.atom_counts_bondorder_ext, epsilon_bondorder_ext)
+        if epsilon_bondorder_ar:
+            result.dhf_bondorder_ar = predict_dhf(energy_for_prediction, result.atom_counts_bondorder_ar, epsilon_bondorder_ar)
         if epsilon_extended:
             result.dhf_extended = predict_dhf(energy_for_prediction, result.atom_counts_extended, epsilon_extended)
+        if epsilon_neighbour:
+            result.dhf_neighbour = predict_dhf(energy_for_prediction, result.atom_counts_neighbour, epsilon_neighbour)
 
     except Exception as e:
         result.error = str(e)
@@ -245,7 +288,11 @@ def process_csv(
     epsilon_4param: dict | None = None,
     epsilon_7param: dict | None = None,
     epsilon_hybrid: dict | None = None,
+    epsilon_bondorder: dict | None = None,
+    epsilon_bondorder_ext: dict | None = None,
+    epsilon_bondorder_ar: dict | None = None,
     epsilon_extended: dict | None = None,
+    epsilon_neighbour: dict | None = None,
     output_path: Path | None = None,
     optimizer: str = "xtb",
     predictor=None,
@@ -281,7 +328,11 @@ def process_csv(
             epsilon_4param=epsilon_4param,
             epsilon_7param=epsilon_7param,
             epsilon_hybrid=epsilon_hybrid,
+            epsilon_bondorder=epsilon_bondorder,
+            epsilon_bondorder_ext=epsilon_bondorder_ext,
+            epsilon_bondorder_ar=epsilon_bondorder_ar,
             epsilon_extended=epsilon_extended,
+            epsilon_neighbour=epsilon_neighbour,
             name=mol_name,
             optimizer=optimizer,
             predictor=predictor,

@@ -23,6 +23,9 @@ mlip = ["python-dotenv", "ase"]
 [project.scripts]
 deltahf = "deltahf.__main__:main"
 
+[tool.setuptools.packages.find]
+include = ["deltahf*"]
+
 [tool.ruff]
 line-length = 120
 

@@ -207,6 +207,187 @@ def classify_atoms_extended(smiles: str) -> dict[str, int]:
     return counts
 
 
+def classify_atoms_bondorder(smiles: str) -> dict[str, int]:
+    """Classify atoms by their highest bond order in the Kekulized structure (10-parameter model).
+
+    Uses the same parameter count as the hybridization model but assigns atoms based
+    on the maximum bond order of any bond they participate in (after Kekulization),
+    rather than RDKit's hybridization. Suffix _1/_2/_3 corresponds to single/double/triple.
+
+    Key differences from hybrid: amide N and pyrrole-type N/O have no double bond
+    after Kekulization so fall into _1 (not _2). Aromatic carbons alternate between
+    _1 and _2 depending on which resonance structure Kekulization selects.
+    """
+    mol = smiles_to_mol(smiles)
+    mol = Chem.AddHs(mol)
+    Chem.Kekulize(mol, clearAromaticFlags=True)
+
+    counts: dict[str, int] = {
+        "C_1": 0, "C_2": 0, "C_3": 0,
+        "H": 0,
+        "N_1": 0, "N_2": 0, "N_3": 0,
+        "O_1": 0, "O_2": 0, "O_3": 0,
+    }
+
+    for atom in mol.GetAtoms():
+        symbol = atom.GetSymbol()
+        if symbol not in ("C", "H", "N", "O"):
+            continue
+        if symbol == "H":
+            counts["H"] += 1
+            continue
+        max_order = max((int(b.GetBondTypeAsDouble()) for b in atom.GetBonds()), default=1)
+        max_order = min(max_order, 3)
+        counts[f"{symbol}_{max_order}"] += 1
+
+    return counts
+
+
+def classify_atoms_bondorder_ext(smiles: str) -> dict[str, int]:
+    """Classify atoms by highest bond order + H-count for carbon (16-parameter model).
+
+    The bond-order analogue of classify_atoms_extended(): carbon atoms are split by
+    their maximum bond order in the Kekulized structure (_1/_2/_3) and then further
+    by the number of attached hydrogens (capped at 3/2/1 respectively). Nitrogen and
+    oxygen are classified by bond order only (_1/_2/_3). Hydrogen is always H.
+
+    Caps per bond-order tier:
+      C_1: up to 3H (sp3-like)   C_2: up to 2H (sp2-like)   C_3: up to 1H (sp-like)
+    """
+    mol = smiles_to_mol(smiles)
+    mol = Chem.AddHs(mol)
+    Chem.Kekulize(mol, clearAromaticFlags=True)
+
+    counts: dict[str, int] = {
+        "C_1_3H": 0, "C_1_2H": 0, "C_1_1H": 0, "C_1_0H": 0,
+        "C_2_2H": 0, "C_2_1H": 0, "C_2_0H": 0,
+        "C_3_1H": 0, "C_3_0H": 0,
+        "H": 0,
+        "N_1": 0, "N_2": 0, "N_3": 0,
+        "O_1": 0, "O_2": 0, "O_3": 0,
+    }
+
+    for atom in mol.GetAtoms():
+        symbol = atom.GetSymbol()
+        if symbol not in ("C", "H", "N", "O"):
+            continue
+        if symbol == "H":
+            counts["H"] += 1
+            continue
+
+        max_order = min(max((int(b.GetBondTypeAsDouble()) for b in atom.GetBonds()), default=1), 3)
+
+        if symbol != "C":
+            counts[f"{symbol}_{max_order}"] += 1
+            continue
+
+        n_h = sum(1 for n in atom.GetNeighbors() if n.GetSymbol() == "H")
+        max_h = {1: 3, 2: 2, 3: 1}[max_order]
+        counts[f"C_{max_order}_{min(n_h, max_h)}H"] += 1
+
+    return counts
+
+
+def classify_atoms_bondorder_ar(smiles: str) -> dict[str, int]:
+    """Classify atoms by highest bond order, preserving aromatic bonds as a distinct type (13-parameter model).
+
+    Like bondorder but without Kekulization: aromatic bonds remain at order 1.5 and
+    atoms whose highest bond is aromatic are labelled _ar rather than being split
+    arbitrarily into _1/_2. This gives all equivalent aromatic atoms the same label.
+
+    Suffixes: _1 = single only, _ar = aromatic (highest), _2 = double (non-aromatic), _3 = triple.
+    """
+    mol = smiles_to_mol(smiles)
+    mol = Chem.AddHs(mol)
+
+    counts: dict[str, int] = {
+        "C_1": 0, "C_ar": 0, "C_2": 0, "C_3": 0,
+        "H": 0,
+        "N_1": 0, "N_ar": 0, "N_2": 0, "N_3": 0,
+        "O_1": 0, "O_ar": 0, "O_2": 0, "O_3": 0,
+    }
+
+    for atom in mol.GetAtoms():
+        symbol = atom.GetSymbol()
+        if symbol not in ("C", "H", "N", "O"):
+            continue
+        if symbol == "H":
+            counts["H"] += 1
+            continue
+        max_order = max((b.GetBondTypeAsDouble() for b in atom.GetBonds()), default=1.0)
+        if max_order >= 3.0:
+            label = "3"
+        elif max_order >= 2.0:
+            label = "2"
+        elif max_order >= 1.5:
+            label = "ar"
+        else:
+            label = "1"
+        counts[f"{symbol}_{label}"] += 1
+
+    return counts
+
+
+def classify_atoms_neighbour(smiles: str) -> dict[str, int]:
+    """Classify atoms by hybridization, H-count (C only), and heavy-atom neighbour type.
+
+    Carbon is classified identically to the extended model (hybridization + H-count).
+    Nitrogen and oxygen are further split by the highest-priority heavy-atom neighbour
+    directly bonded to them, using priority O > N > C. This separates chemically
+    distinct environments such as nitro N (bonded to O) from pyridine N (bonded to C)
+    and carbonyl O (bonded to C) from nitro O (bonded to N).
+    """
+    mol = smiles_to_mol(smiles)
+    counts: dict[str, int] = {
+        # Carbon — same as extended
+        "C_sp3_3H": 0, "C_sp3_2H": 0, "C_sp3_1H": 0, "C_sp3_0H": 0,
+        "C_sp2_2H": 0, "C_sp2_1H": 0, "C_sp2_0H": 0, "C_sp": 0,
+        # Hydrogen
+        "H": 0,
+        # Nitrogen: hybridization × highest-priority heavy neighbour (O > N > C)
+        "N_sp3_C": 0, "N_sp3_N": 0, "N_sp3_O": 0,
+        "N_sp2_C": 0, "N_sp2_N": 0, "N_sp2_O": 0,
+        "N_sp_C":  0, "N_sp_N":  0, "N_sp_O":  0,
+        # Oxygen: hybridization × highest-priority heavy neighbour (O > N > C)
+        "O_sp3_C": 0, "O_sp3_N": 0, "O_sp3_O": 0,
+        "O_sp2_C": 0, "O_sp2_N": 0, "O_sp2_O": 0,
+        "O_sp_C":  0, "O_sp_N":  0, "O_sp_O":  0,
+    }
+
+    for atom in mol.GetAtoms():
+        symbol = atom.GetSymbol()
+        if symbol not in ("C", "H", "N", "O"):
+            continue
+
+        if symbol == "H":
+            counts["H"] += 1
+            continue
+
+        hyb_label = _HYBRID_MAP.get(atom.GetHybridization(), "sp3")
+
+        if symbol == "C":
+            if hyb_label == "sp":
+                counts["C_sp"] += 1
+            else:
+                n_h_raw = sum(1 for n in atom.GetNeighbors() if n.GetSymbol() == "H")
+                max_h = 3 if hyb_label == "sp3" else 2
+                n_h = min(n_h_raw, max_h)
+                counts[f"C_{hyb_label}_{n_h}H"] += 1
+        else:
+            heavy = {n.GetSymbol() for n in atom.GetNeighbors() if n.GetSymbol() != "H"}
+            if "O" in heavy:
+                nbr = "O"
+            elif "N" in heavy:
+                nbr = "N"
+            else:
+                nbr = "C"
+            key = f"{symbol}_{hyb_label}_{nbr}"
+            if key in counts:
+                counts[key] += 1
+
+    return counts
+
+
 def _is_multiply_bonded(atom) -> bool:
     """Check if a heavy atom is in a multiply-bonded environment.
 
