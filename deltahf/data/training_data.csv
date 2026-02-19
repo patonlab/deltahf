@@ -312,3 +312,221 @@ id,name,formula,smiles,exp_dhf_kcal_mol,source,category
 311,tetracene,C18H12,C1=CC=C2C=C3C=C4C=CC=CC4=CC3=CC2=C1,72.11,Yalamanchi2020,large_HC
 312,Benz[a]anthracene,C18H12,C1=CC=C2C(=C1)C=CC3=CC4=CC=CC=C4C=C32,70.03,Yalamanchi2020,large_HC
 313,Chrysene,C18H12,C1=CC=C2C(=C1)C=CC3=C2C=CC4=CC=CC=C43,64.48,Yalamanchi2020,large_HC
+314,Thiozone,S3,S=S=S,34.15153,ATcT_v1.220,sulfur
+315,(E)-Difluorodiazene,F2N2,FN=NF,18.857553,ATcT_v1.220,fluorinated
+316,Peroxynitrous acid,HNO3,O=NOO,-3.381931,ATcT_v1.220,small_CHNO
+317,Nitrosyl nitrate,N2O4,O=NO[N+](=O)[O-],9.655832,ATcT_v1.220,small_CHNO
+318,Peroxyhypochlorous acid,HClO2,OOCl,-0.310707,ATcT_v1.220,chlorinated
+319,Difluorodioxidane,F2O2,FOOF,7.566922,ATcT_v1.220,fluorinated
+320,Diisocyanogen,C2N2,[C-]#[N+][N+]#[C-],146.558317,ATcT_v1.220,small_CHNO
+321,Benzonitrile,C7H5N,N#Cc1ccccc1,51.577438,ATcT_v1.220,small_CHNO
+322,Anisole,C7H8O,COc1ccccc1,-16.926386,ATcT_v1.220,small_CHNO
+323,Tetrafluorohydrazine,F4N2,FN(F)N(F)F,-5.473231,ATcT_v1.220,fluorinated
+324,Dinitrogen pentoxide,N2O5,O=[N+]([O-])O[N+](=O)[O-],3.534895,ATcT_v1.220,small_CHNO
+325,Butadienylacetylene,C6H6,C#CC=CC=C,82.791587,ATcT_v1.220,hydrocarbon
+326,"1,4-Hexadiyne",C6H6,C#CCC#CC,99.139579,ATcT_v1.220,hydrocarbon
+327,Chlorine chlorite,Cl2O2,[O-][Cl+]OCl,39.722753,ATcT_v1.220,chlorinated
+328,Dinitrogen tetraoxide,N2O4,O=[N+]([O-])[N+](=O)[O-],2.609943,ATcT_v1.220,small_CHNO
+329,1-Butene,C4H8,C=CCC,0.066922,ATcT_v1.220,hydrocarbon
+330,1-Butyne,C4H6,C#CCC,39.873327,ATcT_v1.220,hydrocarbon
+331,Acrolein,C3H4O,C=CC=O,-15.659656,ATcT_v1.220,small_CHNO
+332,"1,2-Dichloroethane",C2H4Cl2,ClCCCl,-31.178298,ATcT_v1.220,chlorinated
+333,2-Chloroethanol,C2H5ClO,OCCCl,-63.692639,ATcT_v1.220,chlorinated
+334,1-Propanamine,C3H9N,CCCN,-16.718451,ATcT_v1.220,small_CHNO
+335,Ethylene glycol,C2H6O2,OCCO,-93.040153,ATcT_v1.220,small_CHNO
+336,Methoxyethene,C3H6O,C=COC,-25.597514,ATcT_v1.220,small_CHNO
+337,Cyanoacetylene,C3HN,C#CC#N,89.385755,ATcT_v1.220,small_CHNO
+338,Chlorobenzene,C6H5Cl,Clc1ccccc1,12.50478,ATcT_v1.220,chlorinated
+339,Phenol,C6H6O,Oc1ccccc1,-22.213193,ATcT_v1.220,small_CHNO
+340,n-Pentane,C5H12,CCCCC,-34.906788,ATcT_v1.220,hydrocarbon
+341,Ethoxyethene,C4H8O,C=COCC,-33.819312,ATcT_v1.220,small_CHNO
+342,Succinic acid,C4H6O4,O=C(O)CCC(=O)O,-196.773423,ATcT_v1.220,small_CHNO
+343,n-Hexane,C6H14,CCCCCC,-39.858987,ATcT_v1.220,hydrocarbon
+344,2-Methylene-2H-azirine,C3H3N,C=C1C=N1,94.885277,ATcT_v1.220,small_CHNO
+345,Tetrafluoroethylene,C2F4,FC(F)=C(F)F,-161.104207,ATcT_v1.220,fluorinated
+346,Norbornadiene,C7H8,C1=CC2C=CC1C2,57.265774,ATcT_v1.220,hydrocarbon
+347,Chlorooxy hypochlorite,Cl2O2,ClOOCl,31.391013,ATcT_v1.220,chlorinated
+348,Propionaldehyde,C3H6O,CCC=O,-44.57457,ATcT_v1.220,small_CHNO
+349,Butyraldehyde,C4H8O,CCCC=O,-49.14914,ATcT_v1.220,small_CHNO
+350,Tetrachloroethene,C2Cl4,ClC(Cl)=C(Cl)Cl,-5.114723,ATcT_v1.220,chlorinated
+352,Sulfur monoxide,OS,O=S,1.431644,ATcT_v1.220,sulfur
+353,Chlorous acid,HClO2,[O-][Cl+]O,4.949809,ATcT_v1.220,chlorinated
+354,Hypofluorous acid,HFO,OF,-20.860421,ATcT_v1.220,fluorinated
+355,Nitrosyl hydride,HNO,N=O,25.571224,ATcT_v1.220,small_CHNO
+356,Oxalic acid,C2H2O4,O=C(O)C(=O)O,-174.856597,ATcT_v1.220,small_CHNO
+357,Isocyanoethene,C3H3N,[C-]#[N+]C=C,66.639579,ATcT_v1.220,small_CHNO
+358,Trioxidane,H2O3,OOO,-21.65392,ATcT_v1.220,small_CHNO
+359,Formyl fluoride,CHFO,O=CF,-91.352772,ATcT_v1.220,fluorinated
+360,Cyanic fluoride,CFN,N#CF,2.110421,ATcT_v1.220,fluorinated
+361,Methanediimine,CH2N2,N=C=N,35.01434,ATcT_v1.220,small_CHNO
+362,"cis-1,2-Dichloroethene",C2H2Cl2,Cl/C=C\Cl,-0.521033,ATcT_v1.220,chlorinated
+363,"trans-1,2-Dichloroethene",C2H2Cl2,Cl/C=C/Cl,0.052581,ATcT_v1.220,chlorinated
+364,(Z)-Diazene,H2N2,[H]/N=N\[H],52.989962,ATcT_v1.220,small_CHNO
+365,(E)-Diazene,H2N2,[H]/N=N/[H],47.815488,ATcT_v1.220,small_CHNO
+366,"1,2-Ethenediol",C2H4O2,OC=CO,-68.109465,ATcT_v1.220,small_CHNO
+367,Ethynediol,C2H2O2,OC#CO,-5.282027,ATcT_v1.220,small_CHNO
+368,"cis-1,2-Difluoroethene",C2H2F2,F/C=C\F,-74.027247,ATcT_v1.220,fluorinated
+369,"trans-1,2-Difluoroethene",C2H2F2,F/C=C/F,-73.176386,ATcT_v1.220,fluorinated
+370,Thiodioxy,O2S,[O-][O+]=S,47.08413,ATcT_v1.220,sulfur
+371,Dioxohydrazine,N2O2,O=NN=O,40.913002,ATcT_v1.220,small_CHNO
+372,Trioxygen difluoride,F2O3,FOOOF,25.501912,ATcT_v1.220,fluorinated
+373,"1,2-Difluoroethene",C2H2F2,FC=CF,-73.867113,ATcT_v1.220,fluorinated
+374,Sulfur oxide peroxide,O3S,O=S=[O+][O-],-7.217973,ATcT_v1.220,sulfur
+375,N-Methylenemethanamine,C2H5N,C=NC,19.048757,ATcT_v1.220,small_CHNO
+376,Peroxychlorous acid,HClO3,[O-][Cl+]OO,21.367113,ATcT_v1.220,chlorinated
+377,"1,2,3,4-Hexatetraene",C6H6,C=C=C=C=CC,100.40631,ATcT_v1.220,hydrocarbon
+378,"3,4-Hexadien-1-yne",C6H6,C#CC=C=CC,97.394837,ATcT_v1.220,hydrocarbon
+379,Methanimine,CH3N,C=N,21.152008,ATcT_v1.220,small_CHNO
+380,Ethanimine,C2H5N,CC=N,9.842256,ATcT_v1.220,small_CHNO
+381,Disulfene oxide,OS2,O=S=S,-12.581262,ATcT_v1.220,sulfur
+382,Pentatetraene,C5H4,C=C=C=C=C,107.217973,ATcT_v1.220,hydrocarbon
+383,Disulfur,S2,S=S,30.513862,ATcT_v1.220,sulfur
+384,Methylenediazeniumide,CH2N2,[CH-]=[N+]=N,88.121415,ATcT_v1.220,small_CHNO
+385,"1,4-Pentadiyne",C5H4,C#CCC#C,108.652008,ATcT_v1.220,hydrocarbon
+386,Sulfinyl hydride,H2OS,O=[SH2],-11.352772,ATcT_v1.220,sulfur
+387,Formyl chloride,CHClO,O=CCl,-43.75717,ATcT_v1.220,chlorinated
+388,"cis-1,3,5-Hexatriene",C6H8,C=CC=CC=C,40.774379,ATcT_v1.220,hydrocarbon
+389,Nitrosyl chloride,ClNO,O=NCl,12.566922,ATcT_v1.220,chlorinated
+390,Fluoroacetylene,C2HF,C#CF,25.260516,ATcT_v1.220,fluorinated
+391,"2,4-Hexadiyne",C6H6,CC#CC#CC,88.508604,ATcT_v1.220,hydrocarbon
+392,Azete,C3H3N,C1=CN=C1,110.277247,ATcT_v1.220,small_CHNO
+393,Butatriene,C4H4,C=C=C=C,76.998088,ATcT_v1.220,hydrocarbon
+394,Tetroxidane,H2O4,OOOO,-10.513862,ATcT_v1.220,small_CHNO
+395,Biallenyl,C6H6,C=C=CC=C=C,95.363289,ATcT_v1.220,hydrocarbon
+396,Methyl hydroperoxide,CH4O2,COO,-30.509082,ATcT_v1.220,small_CHNO
+397,Ethyl hydroperoxide,C2H6O2,CCOO,-38.458413,ATcT_v1.220,small_CHNO
+398,2-Cyclopropen-1-imine,C3H3N,N=c1cc1,94.216061,ATcT_v1.220,small_CHNO
+399,"1,3,5-Hexatriyne",C6H2,C#CC#CC#C,164.196941,ATcT_v1.220,hydrocarbon
+400,Ethynol,C2H2O,C#CO,22.184512,ATcT_v1.220,small_CHNO
+401,Chloroallene,C3H3Cl,C=C=CCl,41.873805,ATcT_v1.220,chlorinated
+402,Trimethylenecyclopropane,C6H6,C=C1C(=C)C1=C,105.497132,ATcT_v1.220,hydrocarbon
+403,Propargylallene,C6H6,C#CCC=C=C,100.334608,ATcT_v1.220,hydrocarbon
+404,Diazomethane,CH2N2,C=[N+]=[N-],63.902964,ATcT_v1.220,small_CHNO
+405,"1,2-Pentadien-4-yne",C5H4,C#CC=C=C,104.366635,ATcT_v1.220,hydrocarbon
+406,"1,2-Hexadien-4-yne",C6H6,C=C=CC#CC,95.00478,ATcT_v1.220,hydrocarbon
+407,Fluoroethane,C2H5F,CCF,-65.035851,ATcT_v1.220,fluorinated
+408,Difluorophosgene,CF2O,O=C(F)F,-144.942639,ATcT_v1.220,fluorinated
+409,Nitrosamine,H2N2O,NN=O,18.403442,ATcT_v1.220,small_CHNO
+410,[1.1.1]Propellane,C5H6,C1C23CC12C3,86.281071,ATcT_v1.220,hydrocarbon
+411,Trifluoroethene,C2HF3,FC=C(F)F,-119.144359,ATcT_v1.220,fluorinated
+412,Phenyl hydroperoxide,C6H6O2,OOc1ccccc1,-1.24283,ATcT_v1.220,small_CHNO
+413,Diazene,H2N2,N=N,47.817878,ATcT_v1.220,small_CHNO
+414,2-Fluoroethanol,C2H5FO,OCCF,-101.068356,ATcT_v1.220,fluorinated
+415,Nitrogen hydride oxide,H3NO,[NH3+][O-],14.57935,ATcT_v1.220,small_CHNO
+416,Hexafluorobenzene,C6F6,Fc1c(F)c(F)c(F)c(F)c1F,-226.469885,ATcT_v1.220,fluorinated
+417,Sulfanylideneoxidaniumthiolate,OS2,S=[O+][S-],52.342256,ATcT_v1.220,sulfur
+418,Cyanamide,CH2N2,N#CN,32.413958,ATcT_v1.220,small_CHNO
+419,Cyanic acid,CHNO,N#CO,-3.587476,ATcT_v1.220,small_CHNO
+420,3-Chloro-3-methyl-3H-diazirine,C2H3ClN2,CC1(Cl)N=N1,57.265774,ATcT_v1.220,chlorinated
+421,Ethenedione,C2O2,O=C=C=O,4.063098,ATcT_v1.220,small_CHNO
+422,Oxybismethanol,C2H6O3,OCOCO,-133.173996,ATcT_v1.220,small_CHNO
+423,"1,3-Hexadiyne",C6H6,C#CC#CCC,94.058317,ATcT_v1.220,hydrocarbon
+424,"1,3-Butadiyne",C4H2,C#CC#C,109.966539,ATcT_v1.220,hydrocarbon
+425,Fluorobenzene,C6H5F,Fc1ccccc1,-26.701721,ATcT_v1.220,fluorinated
+426,Carbonyl sulfide,COS,O=C=S,-33.448853,ATcT_v1.220,sulfur
+427,Isocyanamide,CH2N2,[C-]#[N+]N,77.10325,ATcT_v1.220,small_CHNO
+428,"1,3-Pentadiyne",C5H4,C#CC#CC,98.938815,ATcT_v1.220,hydrocarbon
+429,Diphenylacetylene,C14H10,C(#Cc1ccccc1)c1ccccc1,97.347036,ATcT_v1.220,hydrocarbon
+430,Carbon suboxide,C3O2,O=C=C=C=O,-22.06262,ATcT_v1.220,small_CHNO
+431,Cyanogen chloride,CClN,N#CCl,32.468929,ATcT_v1.220,chlorinated
+432,Isofulminic acid,CHNO,[C-]#[N+]O,55.82218,ATcT_v1.220,small_CHNO
+433,Fulminic acid,CHNO,C#[N+][O-],40.461281,ATcT_v1.220,small_CHNO
+434,"(3Z)-1,3-Hexadien-5-yne",C6H6,C#C/C=C\C=C,82.767686,ATcT_v1.220,hydrocarbon
+435,"(3E)-1,3-Hexadien-5-yne",C6H6,C#C/C=C/C=C,82.839388,ATcT_v1.220,hydrocarbon
+436,Phenylacetylene,C8H6,C#Cc1ccccc1,75.917782,ATcT_v1.220,hydrocarbon
+438,"2,2,4-Trimethylpentane",C8H18,CC(C)CC(C)(C)C,-53.417782,ATcT_v1.220,hydrocarbon
+439,Ethenol,C2H4O,C=CO,-29.734704,ATcT_v1.220,small_CHNO
+440,Tetrachloromethane,CCl4,ClC(Cl)(Cl)Cl,-21.859465,ATcT_v1.220,chlorinated
+441,Dioxymethyl,CH2O2,C=[O+][O-],25.119503,ATcT_v1.220,small_CHNO
+442,Dewar benzene,C6H6,C1=CC2C=CC12,96.821224,ATcT_v1.220,hydrocarbon
+443,cis-2-Butene,C4H8,C/C=C\C,-1.637189,ATcT_v1.220,hydrocarbon
+444,"1,2-Butadiene",C4H6,C=C=CC,38.850382,ATcT_v1.220,hydrocarbon
+445,"1,5-Hexadiene",C6H10,C=CCCC=C,20.057361,ATcT_v1.220,hydrocarbon
+446,Fluoromethane,CH3F,CF,-56.278681,ATcT_v1.220,fluorinated
+447,Chloroacetylene,C2HCl,C#CCl,55.021511,ATcT_v1.220,chlorinated
+448,Ethenamine,C2H5N,C=CN,13.104685,ATcT_v1.220,small_CHNO
+449,Chlorofluoromethane,CH2ClF,FCCl,-63.009082,ATcT_v1.220,fluorinated
+450,Isocyanomethane,C2H3N,[C-]#[N+]C,42.366157,ATcT_v1.220,small_CHNO
+451,Methyl hypochlorite,CH3ClO,COCl,-15.057361,ATcT_v1.220,chlorinated
+452,Diethyl ether,C4H10O,CCOCC,-59.799235,ATcT_v1.220,small_CHNO
+453,Methylketene,C3H4O,CC=C=O,-15.198375,ATcT_v1.220,small_CHNO
+454,Formamide enol,CH3NO,N=CO,-33.891013,ATcT_v1.220,small_CHNO
+455,"1,2,3,5-Hexatetraene",C6H6,C=C=C=CC=C,90.82218,ATcT_v1.220,hydrocarbon
+456,Propadienone,C3H2O,C=C=C=O,31.209369,ATcT_v1.220,small_CHNO
+457,Propyn-1-ol,C3H4O,CC#CO,13.718929,ATcT_v1.220,small_CHNO
+458,Aniline,C6H7N,Nc1ccccc1,20.750478,ATcT_v1.220,small_CHNO
+459,"1,2,3-Pentatriene",C5H6,C=C=C=CC,69.407266,ATcT_v1.220,hydrocarbon
+460,trans-2-Butene,C4H8,C/C=C/C,-2.602772,ATcT_v1.220,hydrocarbon
+461,Propargyl chloride,C3H3Cl,C#CCCl,43.212237,ATcT_v1.220,chlorinated
+462,2-Propynal,C3H2O,C#CC=O,31.871415,ATcT_v1.220,small_CHNO
+463,"1,2-Difluoroethane",C2H4F2,FCCF,-107.029159,ATcT_v1.220,fluorinated
+464,N-Methylethanamine,C3H9N,CCNC,-10.898662,ATcT_v1.220,small_CHNO
+465,Sulfenic acid,H2OS,OS,-27.323136,ATcT_v1.220,sulfur
+466,"1,5-Hexadiyne",C6H6,C#CCCC#C,100.669216,ATcT_v1.220,hydrocarbon
+467,"1,1,1,2-Tetrachloroethane",C2H2Cl4,ClCC(Cl)(Cl)Cl,-36.543977,ATcT_v1.220,chlorinated
+468,Triprismane,C6H6,C12C3C1C1C2C31,133.054493,ATcT_v1.220,hydrocarbon
+469,Benzvalene,C6H6,C1=CC2C3C1C23,92.423518,ATcT_v1.220,hydrocarbon
+470,Isocyanoacetylene,C3HN,[C-]#[N+]C#C,116.400574,ATcT_v1.220,small_CHNO
+471,Vinyl hydroperoxide,C2H4O2,C=COO,-9.16109,ATcT_v1.220,small_CHNO
+472,Chloroform,CHCl3,ClC(Cl)Cl,-23.76195,ATcT_v1.220,chlorinated
+473,Hexachloroethane,C2Cl6,ClC(Cl)(Cl)C(Cl)(Cl)Cl,-35.01434,ATcT_v1.220,chlorinated
+474,Vinylacetylene,C4H4,C#CC=C,69.239962,ATcT_v1.220,hydrocarbon
+475,"1,2-Difluoroacetylene",C2F2,FC#CF,1.355163,ATcT_v1.220,fluorinated
+476,2-Ethylidenedioxidan-2-ium-1-ide,C2H4O2,CC=[O+][O-],9.029637,ATcT_v1.220,small_CHNO
+477,1-Propanol,C3H8O,CCCO,-60.941683,ATcT_v1.220,small_CHNO
+478,1-Butanol,C4H10O,CCCCO,-65.666826,ATcT_v1.220,small_CHNO
+479,"1,1,1-Trichloroethane",C2H3Cl3,CC(Cl)(Cl)Cl,-34.550669,ATcT_v1.220,chlorinated
+480,Dioxyamidogen,HNO2,[NH-][O+]=O,55.879541,ATcT_v1.220,small_CHNO
+481,Chloromethane,CH3Cl,CCl,-19.737094,ATcT_v1.220,chlorinated
+482,Methanethiol,CH4S,CS,-4.940249,ATcT_v1.220,sulfur
+483,Sulfur dioxide,O2S,O=S=O,-70.924952,ATcT_v1.220,sulfur
+484,Chloroethane,C2H5Cl,CCCl,-26.6587,ATcT_v1.220,chlorinated
+485,Vinyl chloride,C2H3Cl,C=CCl,5.212715,ATcT_v1.220,chlorinated
+486,Vinyl fluoride,C2H3F,C=CF,-34.015296,ATcT_v1.220,fluorinated
+487,Ethanethiol,C2H6S,CCS,-10.893881,ATcT_v1.220,sulfur
+488,Dichloromethane,CH2Cl2,ClCCl,-22.397228,ATcT_v1.220,chlorinated
+489,Difluoromethane,CH2F2,FCF,-107.774857,ATcT_v1.220,fluorinated
+490,Isocyanic acid,CHNO,N=C=O,-28.420172,ATcT_v1.220,small_CHNO
+491,Carbon disulfide,CS2,S=C=S,27.93021,ATcT_v1.220,sulfur
+492,Formaldoxime,CH3NO,C=NO,4.780115,ATcT_v1.220,small_CHNO
+493,Dimethyl sulfide,C2H6S,CSC,-8.783461,ATcT_v1.220,sulfur
+494,"1,1-Dichloroethane",C2H4Cl2,CC(Cl)Cl,-31.771033,ATcT_v1.220,chlorinated
+495,"1,1-Dichloroethene",C2H2Cl2,C=C(Cl)Cl,0.791109,ATcT_v1.220,chlorinated
+496,"1,1-Difluoroethane",C2H4F2,CC(F)F,-120.155354,ATcT_v1.220,fluorinated
+497,"1,1-Difluoroethene",C2H2F2,C=C(F)F,-83.809751,ATcT_v1.220,fluorinated
+498,Fluorodichloromethane,CHCl2F,FC(Cl)Cl,-67.657744,ATcT_v1.220,fluorinated
+499,Phosgene,CCl2O,O=C(Cl)Cl,-52.385277,ATcT_v1.220,chlorinated
+500,Chlorodifluoromethane,CHClF2,FC(F)Cl,-115.145793,ATcT_v1.220,fluorinated
+501,Fluoroform,CHF3,FC(F)F,-166.402964,ATcT_v1.220,fluorinated
+502,2-Methyl-2-propanamine,C4H11N,CC(C)(C)N,-28.838432,ATcT_v1.220,small_CHNO
+503,2-Methyl-2-propanol,C4H10O,CC(C)(C)O,-74.59369,ATcT_v1.220,small_CHNO
+504,Fluorotrichloromethane,CCl3F,FC(Cl)(Cl)Cl,-68.446463,ATcT_v1.220,fluorinated
+505,Dichlorodifluoromethane,CCl2F2,FC(F)(Cl)Cl,-117.844168,ATcT_v1.220,fluorinated
+506,Chlorotrifluoromethane,CClF3,FC(F)(F)Cl,-169.543499,ATcT_v1.220,fluorinated
+507,Tetrafluoromethane,CF4,FC(F)(F)F,-223.135755,ATcT_v1.220,fluorinated
+508,Dichloroacetylene,C2Cl2,ClC#CCl,56.441205,ATcT_v1.220,chlorinated
+509,Pentachloroethane,C2HCl5,ClC(Cl)C(Cl)(Cl)Cl,-37.404398,ATcT_v1.220,chlorinated
+510,Hexafluoroethane,C2F6,FC(F)(F)C(F)(F)F,-320.82935,ATcT_v1.220,fluorinated
+511,Cyanic azide,CN4,N#CN=[N+]=[N-],119.120459,ATcT_v1.220,small_CHNO
+512,Hydrogen chloride,HCl,Cl,-22.029637,ATcT_v1.220,chlorinated
+513,Hydrogen fluoride,HF,F,-65.181883,ATcT_v1.220,fluorinated
+514,1-Chloropropyne,C3H3Cl,CC#CCl,44.909178,ATcT_v1.220,chlorinated
+515,Difluorine,F2,FF,0.0,ATcT_v1.220,fluorinated
+516,Dichlorine,Cl2,ClCl,0.0,ATcT_v1.220,chlorinated
+517,Nitrous acid,HNO2,O=NO,-18.907027,ATcT_v1.220,small_CHNO
+518,Hydrazoic acid,HN3,[N-]=[N+]=N,69.725143,ATcT_v1.220,small_CHNO
+519,Hydrogen sulfide,H2S,S,-4.851816,ATcT_v1.220,sulfur
+520,Nitrogen trifluoride,F3N,FN(F)F,-31.455545,ATcT_v1.220,fluorinated
+521,Nitrosyl fluoride,FNO,O=NF,-20.991874,ATcT_v1.220,fluorinated
+522,Chlorine fluoride,ClF,FCl,-13.315488,ATcT_v1.220,fluorinated
+523,Hypochlorous acid,HClO,OCl,-18.351099,ATcT_v1.220,chlorinated
+524,Chloro hypochlorite,Cl2O,ClOCl,18.637667,ATcT_v1.220,chlorinated
+525,Hydroxylamine,H3NO,NO,-10.380019,ATcT_v1.220,small_CHNO
+526,"1,1,2-Trichloroethane",C2H3Cl3,ClCC(Cl)Cl,-35.205545,ATcT_v1.220,chlorinated
+527,Trichloroethene,C2HCl3,ClC=C(Cl)Cl,-3.393881,ATcT_v1.220,chlorinated
+528,"1,1,2,2-Tetrachloroethane",C2H2Cl4,ClC(Cl)C(Cl)Cl,-37.308795,ATcT_v1.220,chlorinated
+529,Divinylacetylene,C6H6,C=CC#CC=C,83.771511,ATcT_v1.220,hydrocarbon
+530,Thioformaldehyde,CH2S,C=S,28.107075,ATcT_v1.220,sulfur
+531,Nitrosomethane,CH3NO,CN=O,16.983748,ATcT_v1.220,small_CHNO
+532,"Hypochloroperoxoous acid, hydroxy ester",HClO3,OOOCl,9.918738,ATcT_v1.220,chlorinated
+533,Isocyanobenzene,C7H5N,[C-]#[N+]c1ccccc1,73.398662,ATcT_v1.220,small_CHNO

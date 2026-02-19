@@ -21,8 +21,8 @@ class TestProcessMolecule:
         mock_result = XtbResult(energy=-5.07, optimized_xyz_path=None, converged=True, stdout="")
         with mock.patch("deltahf.pipeline.run_xtb_optimization", return_value=mock_result):
             result = process_molecule("C", n_conformers=1)
-        assert result.atom_counts_4param == {"C": 1, "H": 4, "N": 0, "O": 0}
-        assert result.atom_counts_7param is not None
+        assert {k: result.atom_counts_element[k] for k in ("C", "H", "N", "O")} == {"C": 1, "H": 4, "N": 0, "O": 0}
+        assert result.atom_counts_element_bo is not None
 
     def test_records_xtb_energy(self):
         mock_result = XtbResult(energy=-5.07, optimized_xyz_path=None, converged=True, stdout="")
@@ -45,8 +45,8 @@ class TestProcessMolecule:
         epsilon_4 = {"C": -200.0, "H": -80.0, "N": -190.0, "O": -95.0}
         mock_result = XtbResult(energy=-5.07, optimized_xyz_path=None, converged=True, stdout="")
         with mock.patch("deltahf.pipeline.run_xtb_optimization", return_value=mock_result):
-            result = process_molecule("C", n_conformers=1, epsilon_4param=epsilon_4)
-        assert result.dhf_4param is not None
+            result = process_molecule("C", n_conformers=1, epsilon_element=epsilon_4)
+        assert result.dhf_element is not None
 
     def test_name_is_stored(self):
         mock_result = XtbResult(energy=-5.07, optimized_xyz_path=None, converged=True, stdout="")

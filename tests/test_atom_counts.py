@@ -71,7 +71,8 @@ class TestAtomCounts4Param:
     def test_count_atoms(self, mol_id, name, smiles, row):
         expected = {"C": int(row["C_4"]), "H": int(row["H_4"]), "N": int(row["N_4"]), "O": int(row["O_4"])}
         result = count_atoms(smiles)
-        assert result == expected, f"{name} ({smiles}): got {result}, expected {expected}"
+        result_chno = {k: result[k] for k in expected}
+        assert result_chno == expected, f"{name} ({smiles}): got {result}, expected {expected}"
 
 
 class TestAtomCounts7Param:
@@ -91,7 +92,8 @@ class TestAtomCounts7Param:
             "C_prime": int(row["C_prime"]), "N_prime": int(row["N_prime"]), "O_prime": int(row["O_prime"]),
         }
         result = classify_atoms_7param(smiles)
-        assert result == expected, f"{name} ({smiles}): got {result}, expected {expected}"
+        result_subset = {k: result[k] for k in expected}
+        assert result_subset == expected, f"{name} ({smiles}): got {result}, expected {expected}"
 
 
 class TestAtomCountSummary:
@@ -102,7 +104,8 @@ class TestAtomCountSummary:
         mismatches = 0
         for _, row in df.iterrows():
             expected = {"C": int(row["C_4"]), "H": int(row["H_4"]), "N": int(row["N_4"]), "O": int(row["O_4"])}
-            if count_atoms(row["smiles"]) != expected:
+            result = count_atoms(row["smiles"])
+            if {k: result[k] for k in expected} != expected:
                 mismatches += 1
         assert mismatches == 0, f"{mismatches} molecules have 4-param mismatches (expected 0)"
 
@@ -114,7 +117,8 @@ class TestAtomCountSummary:
                 "C": int(row["C_7"]), "H": int(row["H_7"]), "N": int(row["N_7"]), "O": int(row["O_7"]),
                 "C_prime": int(row["C_prime"]), "N_prime": int(row["N_prime"]), "O_prime": int(row["O_prime"]),
             }
-            if classify_atoms_7param(row["smiles"]) == expected:
+            result = classify_atoms_7param(row["smiles"])
+            if {k: result[k] for k in expected} == expected:
                 matches += 1
         assert matches == 313, f"{matches} molecules match 7-param (expected 313)"
 

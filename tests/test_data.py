@@ -23,15 +23,15 @@ class TestTrainingData:
     def df(self):
         return load_training_data()
 
-    def test_has_313_rows(self, df):
-        assert len(df) == 313
+    def test_has_533_rows(self, df):
+        assert len(df) == 533
 
     def test_required_columns(self, df):
         for col in ["id", "name", "formula", "smiles", "exp_dhf_kcal_mol", "source", "category"]:
             assert col in df.columns
 
     def test_ids_are_sequential(self, df):
-        assert list(df["id"]) == list(range(1, 314))
+        assert list(df["id"]) == list(range(1, 534))
 
     def test_all_smiles_parseable(self, df):
         for idx, row in df.iterrows():
@@ -65,17 +65,27 @@ class TestTrainingData:
 
     def test_sources(self, df):
         sources = set(df["source"])
-        assert sources == {"Cawkwell2021", "Yalamanchi2020"}
+        assert sources == {"Cawkwell2021", "Yalamanchi2020", "ATcT_v1.220"}
         assert len(df[df["source"] == "Cawkwell2021"]) == 102
         assert len(df[df["source"] == "Yalamanchi2020"]) == 211
+        assert len(df[df["source"] == "ATcT_v1.220"]) == 220
 
     def test_exp_dhf_values_reasonable(self, df):
         """Experimental ΔHf° should be in a reasonable range for organic molecules."""
-        assert df["exp_dhf_kcal_mol"].min() > -200
+        assert df["exp_dhf_kcal_mol"].min() > -400
         assert df["exp_dhf_kcal_mol"].max() < 200
 
     def test_no_duplicate_ids(self, df):
         assert df["id"].is_unique
+
+    def test_no_multi_fragment_smiles(self, df):
+        """No entry should be a van der Waals complex or mixture (disconnected SMILES)."""
+        multi = []
+        for _, row in df.iterrows():
+            mol = Chem.MolFromSmiles(row["smiles"])
+            if mol is not None and len(Chem.GetMolFrags(mol)) > 1:
+                multi.append(f"ID {row['id']} ({row['name']}): {row['smiles']}")
+        assert not multi, "Multi-fragment SMILES found:\n" + "\n".join(multi)
 
     def test_formulas_match_smiles(self, df):
         """Atom counts from RDKit should match the stated formula."""

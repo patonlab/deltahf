@@ -52,16 +52,16 @@ class MoleculeResult:
     mlip_energy_kcal: float | None = None
     gxtb_energy: float | None = None
     gxtb_energy_kcal: float | None = None
-    atom_counts_4param: dict | None = None
-    atom_counts_7param: dict | None = None
+    atom_counts_element: dict | None = None
+    atom_counts_element_bo: dict | None = None
     atom_counts_hybrid: dict | None = None
     atom_counts_bondorder: dict | None = None
     atom_counts_bondorder_ext: dict | None = None
     atom_counts_bondorder_ar: dict | None = None
     atom_counts_extended: dict | None = None
     atom_counts_neighbour: dict | None = None
-    dhf_4param: float | None = None
-    dhf_7param: float | None = None
+    dhf_element: float | None = None
+    dhf_element_bo: float | None = None
     dhf_hybrid: float | None = None
     dhf_bondorder: float | None = None
     dhf_bondorder_ext: float | None = None
@@ -83,8 +83,8 @@ def process_molecule(
     smiles: str,
     n_conformers: int = 1,
     num_initial_confs: int = 50,
-    epsilon_4param: dict | None = None,
-    epsilon_7param: dict | None = None,
+    epsilon_element: dict | None = None,
+    epsilon_element_bo: dict | None = None,
     epsilon_hybrid: dict | None = None,
     epsilon_bondorder: dict | None = None,
     epsilon_bondorder_ext: dict | None = None,
@@ -107,9 +107,9 @@ def process_molecule(
         from deltahf.smiles import validate_elements
         validate_elements(smiles)
 
-        result.atom_counts_4param = count_atoms(smiles)
+        result.atom_counts_element = count_atoms(smiles)
         if not use_xtb_wbos:
-            result.atom_counts_7param = classify_atoms_7param(smiles)
+            result.atom_counts_element_bo = classify_atoms_7param(smiles)
         result.atom_counts_hybrid = classify_atoms_hybrid(smiles)
         result.atom_counts_bondorder = classify_atoms_bondorder(smiles)
         result.atom_counts_bondorder_ext = classify_atoms_bondorder_ext(smiles)
@@ -132,13 +132,13 @@ def process_molecule(
                 result.n_conformers_optimized = cached.n_conformers_optimized
                 result.n_conformers_isomerized = cached.n_conformers_isomerized
                 energy_for_prediction = _best_energy_kcal(result)
-                if epsilon_4param:
-                    result.dhf_4param = predict_dhf(
-                        energy_for_prediction, result.atom_counts_4param, epsilon_4param
+                if epsilon_element:
+                    result.dhf_element = predict_dhf(
+                        energy_for_prediction, result.atom_counts_element, epsilon_element
                     )
-                if epsilon_7param:
-                    result.dhf_7param = predict_dhf(
-                        energy_for_prediction, result.atom_counts_7param, epsilon_7param
+                if epsilon_element_bo:
+                    result.dhf_element_bo = predict_dhf(
+                        energy_for_prediction, result.atom_counts_element_bo, epsilon_element_bo
                     )
                 if epsilon_hybrid:
                     result.dhf_hybrid = predict_dhf(
@@ -255,14 +255,14 @@ def process_molecule(
 
         if use_xtb_wbos and best_wbo_path is not None:
             wbos = parse_wbo_file(best_wbo_path)
-            result.atom_counts_7param = classify_atoms_7param_from_wbo(smiles, wbos)
+            result.atom_counts_element_bo = classify_atoms_7param_from_wbo(smiles, wbos)
 
         energy_for_prediction = _best_energy_kcal(result)
 
-        if epsilon_4param:
-            result.dhf_4param = predict_dhf(energy_for_prediction, result.atom_counts_4param, epsilon_4param)
-        if epsilon_7param:
-            result.dhf_7param = predict_dhf(energy_for_prediction, result.atom_counts_7param, epsilon_7param)
+        if epsilon_element:
+            result.dhf_element = predict_dhf(energy_for_prediction, result.atom_counts_element, epsilon_element)
+        if epsilon_element_bo:
+            result.dhf_element_bo = predict_dhf(energy_for_prediction, result.atom_counts_element_bo, epsilon_element_bo)
         if epsilon_hybrid:
             result.dhf_hybrid = predict_dhf(energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid)
         if epsilon_bondorder:
@@ -289,8 +289,8 @@ def process_molecule(
 def process_csv(
     csv_path: Path,
     n_conformers: int = 1,
-    epsilon_4param: dict | None = None,
-    epsilon_7param: dict | None = None,
+    epsilon_element: dict | None = None,
+    epsilon_element_bo: dict | None = None,
     epsilon_hybrid: dict | None = None,
     epsilon_bondorder: dict | None = None,
     epsilon_bondorder_ext: dict | None = None,
@@ -329,8 +329,8 @@ def process_csv(
         mol_result = process_molecule(
             smiles,
             n_conformers=n_conformers,
-            epsilon_4param=epsilon_4param,
-            epsilon_7param=epsilon_7param,
+            epsilon_element=epsilon_element,
+            epsilon_element_bo=epsilon_element_bo,
             epsilon_hybrid=epsilon_hybrid,
             epsilon_bondorder=epsilon_bondorder,
             epsilon_bondorder_ext=epsilon_bondorder_ext,
