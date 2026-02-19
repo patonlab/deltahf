@@ -1,0 +1,45 @@
+version: 2.1
+
+jobs:
+  full-test-suite:
+    docker:
+      - image: continuumio/miniconda3:latest
+    resource_class: medium
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - conda-env-v1-{{ checksum "environment.yml" }}
+
+      - run:
+          name: Create/update conda environment
+          command: |
+            conda env create -f environment.yml -n deltahf 2>/dev/null \
+              || conda env update -f environment.yml -n deltahf --prune
+            conda run -n deltahf pip install -e . --no-deps
+
+      - save_cache:
+          paths:
+            - /opt/conda/envs/deltahf
+          key: conda-env-v1-{{ checksum "environment.yml" }}
+
+      - run:
+          name: Lint
+          command: conda run -n deltahf ruff check deltahf/ tests/
+
+      - run:
+          name: Unit tests
+          command: conda run -n deltahf pytest -m "not integration" -v --tb=short
+
+      - run:
+          name: Integration tests
+          command: conda run -n deltahf pytest -m integration -v --tb=short
+
+workflows:
+  on-push-to-main:
+    jobs:
+      - full-test-suite:
+          filters:
+            branches:
+              only: main
