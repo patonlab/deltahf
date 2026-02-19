@@ -214,29 +214,29 @@ A comprehensive benchmark (313 molecules, n_conformers = 1, 3, 5) reveals four m
 
 1. **Bond-order classification outperforms hybridization** — Using maximum bond order (1/2/3) from the Kekulized structure instead of RDKit hybridization labels improves accuracy at both the coarse level (`bondorder` vs `hybrid`, same 10 params) and the fine-grained level (`bondorder_ext` vs `extended`). The best model overall is `bondorder_ext` (16 params), combining bond-order labels with per-carbon H-counts.
 
-2. **Model chemistry matters far more than parameterisation** — Upgrading from xTB to gXTB (wB97M-V/def2-TZVPPD single-points on xTB geometries) reduces RMSD by ~33% (4.71 → 3.15 kcal/mol for `bondorder_ext`). Upgrading to UMA (MLIP, GPU) reduces it by a further ~21% (3.15 → 2.47 kcal/mol).
+2. **Model chemistry matters far more than parameterisation** — Upgrading from xTB to gXTB (wB97M-V/def2-TZVPPD single-points on xTB geometries) reduces RMSD by ~31% (4.59 → 3.15 kcal/mol for `bondorder_ext`). Upgrading to UMA (MLIP, GPU) reduces it by a further ~21% (3.15 → 2.48 kcal/mol).
 
 3. **Number of conformers has minimal impact** — Increasing from n=1 to n=5 gives negligible accuracy gains (<1% RMSD change) at a cost of 3–4× more computation. Use `--n-conformers 1` (the default).
 
 4. **xTB + bondorder_ext matches or exceeds the published DFT-B baseline** — On the 102-molecule Cawkwell2021 subset, xTB + `bondorder_ext` (RMSD = 6.91 kcal/mol) approaches the DFT-B + 7param result (RMSD = 6.08 kcal/mol) from Cawkwell et al.<sup>1</sup>, while gXTB and UMA substantially surpass it.
 
-5. **The physics prior from xTB is essential** — A pure cheminformatics baseline (Morgan fingerprint + Random Forest, no quantum chemistry) achieved an in-sample RMSD of 8.89 kcal/mol but a cross-validated RMSD of 22.9 kcal/mol on the full training set — dramatically worse than even the simplest xTB model (4param, CV RMSD = 11.5 kcal/mol). The severe overfitting reflects the small dataset size (313 molecules, 2048-dimensional fingerprint). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly, requiring only 4–16 scalar parameters.
+5. **The physics prior from xTB is essential** — A pure cheminformatics baseline (Morgan fingerprint + Random Forest, no quantum chemistry) achieved an in-sample RMSD of 8.89 kcal/mol but a cross-validated RMSD of 22.9 kcal/mol on the full training set — dramatically worse than even the simplest xTB model (4param, CV RMSD = 11.4 kcal/mol). The severe overfitting reflects the small dataset size (313 molecules, 2048-dimensional fingerprint). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly, requiring only 4–16 scalar parameters.
 
 > **Note on the `neighbour` model:** The `neighbour` model (27 params) shows competitive training-set RMSD but produces an extremely large cross-validation RMSD (hundreds of kcal/mol), indicating instability with near-singular design matrix in some CV folds. It is not recommended for practical use.
 
 ### Results: Effect of Model Parameterisation
 
-Full dataset (311 molecules), n_conformers = 1:
+Full dataset (310 molecules), n_conformers = 1:
 
 | Model | Params | xTB RMSD | xTB MAD | gXTB RMSD | gXTB MAD | UMA RMSD | UMA MAD |
 |-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `4param` | 4 | 11.09 | 7.10 | 4.01 | 3.02 | 3.11 | 2.24 |
-| `7param` | 7 | 8.33 | 4.56 | 3.40 | 2.43 | 2.77 | 1.88 |
-| `hybrid` | 9 | 7.49 | 4.13 | 3.54 | 2.47 | 2.78 | 1.85 |
-| `bondorder` | 9 | 5.77 | 3.65 | 3.26 | 2.36 | 2.69 | 1.80 |
-| `bondorder_ar` | 12 | 5.75 | 3.61 | 3.24 | 2.36 | 2.69 | 1.79 |
-| `extended` | 14 | 7.36 | 3.95 | 3.43 | 2.43 | 2.62 | 1.80 |
-| **`bondorder_ext`** | **15** | **4.71** | **3.01** | **3.15** | **2.31** | **2.47** | **1.73** |
+| `4param` | 4 | 11.07 | 7.07 | 4.01 | 3.01 | 3.12 | 2.24 |
+| `7param` | 7 | 8.28 | 4.52 | 3.40 | 2.43 | 2.77 | 1.89 |
+| `hybrid` | 9 | 7.44 | 4.08 | 3.54 | 2.47 | 2.78 | 1.85 |
+| `bondorder` | 9 | 5.68 | 3.60 | 3.26 | 2.35 | 2.70 | 1.81 |
+| `bondorder_ar` | 12 | 5.65 | 3.56 | 3.24 | 2.36 | 2.69 | 1.80 |
+| `extended` | 14 | 7.31 | 3.91 | 3.43 | 2.42 | 2.63 | 1.80 |
+| **`bondorder_ext`** | **15** | **4.59** | **2.96** | **3.15** | **2.31** | **2.48** | **1.73** |
 
 All values in kcal/mol. Adj. R² and CV RMSD available in `benchmark_results.csv`.
 
@@ -258,9 +258,9 @@ Cawkwell2021 subset (102 molecules), n_conformers = 1. The DFT-B baseline<sup>1<
 
 | n_conformers | xTB RMSD | gXTB RMSD | UMA RMSD | gXTB wall time |
 |:---:|:---:|:---:|:---:|:---:|
-| 1 | 4.71 | 3.15 | 2.47 | 78 s |
-| 3 | 4.73 | 3.15 | 2.47 | 163 s |
-| 5 | 4.77 | 3.15 | 2.42 | 245 s |
+| 1 | 4.59 | 3.15 | 2.48 | 78 s |
+| 3 | 4.61 | 3.15 | 2.48 | 163 s |
+| 5 | 4.65 | 3.15 | 2.43 | 245 s |
 
 ### Recommendations
 
