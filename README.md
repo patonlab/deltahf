@@ -120,12 +120,12 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 
 ## Training Data
 
-`deltahf/data/training_data.csv` contains **314 CHNO molecules** with experimental ΔHf° values from two literature sources:
+`deltahf/data/training_data.csv` contains **313 CHNO molecules** with experimental ΔHf° values from two literature sources:
 
 | Source | Count | Description |
 |--------|-------|-------------|
 | Cawkwell et al. (2021)<sup>1</sup> | 102 | Energetic CHNO molecules + small reference compounds |
-| Yalamanchi et al. (2020)<sup>2</sup> | 212 | Cyclic hydrocarbons (CH only) |
+| Yalamanchi et al. (2020)<sup>2</sup> | 211 | Cyclic hydrocarbons (CH only) |
 
 Each molecule is assigned a `category` label:
 
@@ -134,7 +134,7 @@ Each molecule is assigned a `category` label:
 | `energetic` | 45 | Explosives, nitro/azide/nitroso compounds |
 | `small_CHNO` | 57 | Small reference molecules (methane, water, ethanol, etc.) |
 | `cyclic_HC` | 189 | Cyclic hydrocarbons (cyclopentanes through naphthalenes) |
-| `strained_3ring` | 13 | Cyclopropane derivatives and quadricyclane |
+| `strained_3ring` | 12 | Cyclopropane derivatives and quadricyclane |
 | `large_HC` | 10 | Large PAHs (pyrene, tetracene, etc.) and decylbenzene |
 
 Elemental composition: all molecules contain only C, H, N, O. The Yalamanchi subset contains only C and H.
@@ -165,7 +165,7 @@ python -m deltahf fit \
     -o params.json
 ```
 
-This processes all 314 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
+This processes all 313 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
 
 ### Example 3: Predict ΔHf° for New Molecules
 
@@ -190,7 +190,7 @@ python -m deltahf predict \
 
 ### Running Benchmarks
 
-`benchmark.py` measures accuracy across all eight models, three model chemistries (xTB, gXTB, UMA), and three conformer counts (1, 3, 5). Results are reported for both the full 314-molecule training set and the 102-molecule Cawkwell2021 subset (enabling comparison with the published DFT-B baseline<sup>1</sup>).
+`benchmark.py` measures accuracy across all eight models, three model chemistries (xTB, gXTB, UMA), and three conformer counts (1, 3, 5). Results are reported for both the full 313-molecule training set and the 102-molecule Cawkwell2021 subset (enabling comparison with the published DFT-B baseline<sup>1</sup>).
 
 ```bash
 # xTB (CPU)
@@ -210,7 +210,7 @@ Results are cached per method × n_conformers in `.benchmark_cache/`, so re-runs
 
 ### Key Findings
 
-A comprehensive benchmark (314 molecules, n_conformers = 1, 3, 5) reveals four main findings:
+A comprehensive benchmark (313 molecules, n_conformers = 1, 3, 5) reveals four main findings:
 
 1. **Bond-order classification outperforms hybridization** — Using maximum bond order (1/2/3) from the Kekulized structure instead of RDKit hybridization labels improves accuracy at both the coarse level (`bondorder` vs `hybrid`, same 10 params) and the fine-grained level (`bondorder_ext` vs `extended`). The best model overall is `bondorder_ext` (16 params), combining bond-order labels with per-carbon H-counts.
 
@@ -220,7 +220,7 @@ A comprehensive benchmark (314 molecules, n_conformers = 1, 3, 5) reveals four m
 
 4. **xTB + bondorder_ext matches or exceeds the published DFT-B baseline** — On the 102-molecule Cawkwell2021 subset, xTB + `bondorder_ext` (RMSD = 6.91 kcal/mol) approaches the DFT-B + 7param result (RMSD = 6.08 kcal/mol) from Cawkwell et al.<sup>1</sup>, while gXTB and UMA substantially surpass it.
 
-5. **The physics prior from xTB is essential** — A pure cheminformatics baseline (Morgan fingerprint + Random Forest, no quantum chemistry) achieved an in-sample RMSD of 8.89 kcal/mol but a cross-validated RMSD of 22.9 kcal/mol on the full training set — dramatically worse than even the simplest xTB model (4param, CV RMSD = 11.5 kcal/mol). The severe overfitting reflects the small dataset size (314 molecules, 2048-dimensional fingerprint). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly, requiring only 4–16 scalar parameters.
+5. **The physics prior from xTB is essential** — A pure cheminformatics baseline (Morgan fingerprint + Random Forest, no quantum chemistry) achieved an in-sample RMSD of 8.89 kcal/mol but a cross-validated RMSD of 22.9 kcal/mol on the full training set — dramatically worse than even the simplest xTB model (4param, CV RMSD = 11.5 kcal/mol). The severe overfitting reflects the small dataset size (313 molecules, 2048-dimensional fingerprint). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly, requiring only 4–16 scalar parameters.
 
 > **Note on the `neighbour` model:** The `neighbour` model (27 params) shows competitive training-set RMSD but produces an extremely large cross-validation RMSD (hundreds of kcal/mol), indicating instability with near-singular design matrix in some CV folds. It is not recommended for practical use.
 
