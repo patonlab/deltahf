@@ -21,7 +21,7 @@ class TestProcessMolecule:
         mock_result = XtbResult(energy=-5.07, optimized_xyz_path=None, converged=True, stdout="")
         with mock.patch("deltahf.pipeline.run_xtb_optimization", return_value=mock_result):
             result = process_molecule("C", n_conformers=1)
-        assert result.atom_counts_4param == {"C": 1, "H": 4, "N": 0, "O": 0}
+        assert {k: result.atom_counts_4param[k] for k in ("C", "H", "N", "O")} == {"C": 1, "H": 4, "N": 0, "O": 0}
         assert result.atom_counts_7param is not None
 
     def test_records_xtb_energy(self):

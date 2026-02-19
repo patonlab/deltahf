@@ -2,8 +2,7 @@
 
 from rdkit import Chem
 
-# Supported elements for CHNO-only models
-SUPPORTED_ELEMENTS = {"C", "H", "N", "O"}
+SUPPORTED_ELEMENTS = {"C", "H", "N", "O", "F", "S", "Cl"}
 
 
 def validate_elements(smiles: str, supported_elements: set[str] | None = None) -> None:
@@ -49,9 +48,9 @@ def smiles_to_mol(smiles: str) -> Chem.Mol:
 
 
 def count_atoms(smiles: str) -> dict[str, int]:
-    """Count C, H, N, O atoms for the 4-parameter model."""
+    """Count C, H, N, O, F, S, Cl atoms for the element-count model."""
     mol = smiles_to_mol(smiles)
-    counts = {"C": 0, "H": 0, "N": 0, "O": 0}
+    counts = {"C": 0, "H": 0, "N": 0, "O": 0, "F": 0, "S": 0, "Cl": 0}
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
         if symbol in counts:
@@ -74,15 +73,21 @@ def classify_atoms_7param(smiles: str) -> dict[str, int]:
     """
     mol = smiles_to_mol(smiles)
     Chem.Kekulize(mol, clearAromaticFlags=False)
-    counts = {"C": 0, "H": 0, "N": 0, "O": 0, "C_prime": 0, "N_prime": 0, "O_prime": 0}
+    counts = {"C": 0, "H": 0, "N": 0, "O": 0, "C_prime": 0, "N_prime": 0, "O_prime": 0,
+              "F": 0, "S": 0, "S_prime": 0, "Cl": 0}
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
 
         if symbol == "H":
             counts["H"] += 1
+            continue
+
+        # F and Cl form only single bonds in organic chemistry — never primed
+        if symbol in ("F", "Cl"):
+            counts[symbol] += 1
             continue
 
         if _is_multiply_bonded(atom):
@@ -103,15 +108,20 @@ def classify_atoms_7param_from_wbo(
     (atom_i, atom_j) 0-based index pairs to bond orders.
     """
     mol = smiles_to_mol(smiles)
-    counts = {"C": 0, "H": 0, "N": 0, "O": 0, "C_prime": 0, "N_prime": 0, "O_prime": 0}
+    counts = {"C": 0, "H": 0, "N": 0, "O": 0, "C_prime": 0, "N_prime": 0, "O_prime": 0,
+              "F": 0, "S": 0, "S_prime": 0, "Cl": 0}
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
 
         if symbol == "H":
             counts["H"] += 1
+            continue
+
+        if symbol in ("F", "Cl"):
+            counts[symbol] += 1
             continue
 
         idx = atom.GetIdx()
@@ -145,15 +155,23 @@ def classify_atoms_hybrid(smiles: str) -> dict[str, int]:
         "H": 0,
         "N_sp3": 0, "N_sp2": 0, "N_sp": 0,
         "O_sp3": 0, "O_sp2": 0, "O_sp": 0,
+        "F_sp3": 0,
+        "S_sp3": 0, "S_sp2": 0, "S_sp": 0,
+        "Cl_sp3": 0,
     }
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
 
         if symbol == "H":
             counts["H"] += 1
+            continue
+
+        # F and Cl are always sp3 in organic contexts
+        if symbol in ("F", "Cl"):
+            counts[f"{symbol}_sp3"] += 1
             continue
 
         hyb_label = _HYBRID_MAP.get(atom.GetHybridization(), "sp3")
@@ -178,15 +196,21 @@ def classify_atoms_extended(smiles: str) -> dict[str, int]:
         "H": 0,
         "N_sp3": 0, "N_sp2": 0, "N_sp": 0,
         "O_sp3": 0, "O_sp2": 0, "O_sp": 0,
+        "F": 0, "S_sp3": 0, "S_sp2": 0, "Cl": 0,
     }
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
 
         if symbol == "H":
             counts["H"] += 1
+            continue
+
+        # F and Cl: single type each (no H-count or hybridization distinction needed)
+        if symbol in ("F", "Cl"):
+            counts[symbol] += 1
             continue
 
         hyb_label = _HYBRID_MAP.get(atom.GetHybridization(), "sp3")
@@ -200,6 +224,10 @@ def classify_atoms_extended(smiles: str) -> dict[str, int]:
                 n_h = min(n_h_raw, max_h)
                 key = f"C_{hyb_label}_{n_h}H"
                 counts[key] += 1
+        elif symbol == "S":
+            # S: sp3 (thioether) or sp2 (thiophene, sulfoxide) — sp is rare
+            key = "S_sp2" if hyb_label == "sp2" else "S_sp3"
+            counts[key] += 1
         else:
             key = f"{symbol}_{hyb_label}"
             counts[key] = counts.get(key, 0) + 1
@@ -227,18 +255,25 @@ def classify_atoms_bondorder(smiles: str) -> dict[str, int]:
         "H": 0,
         "N_1": 0, "N_2": 0, "N_3": 0,
         "O_1": 0, "O_2": 0, "O_3": 0,
+        "F_1": 0,
+        "S_1": 0, "S_2": 0, "S_3": 0,
+        "Cl_1": 0,
     }
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
         if symbol == "H":
             counts["H"] += 1
             continue
         max_order = max((int(b.GetBondTypeAsDouble()) for b in atom.GetBonds()), default=1)
         max_order = min(max_order, 3)
-        counts[f"{symbol}_{max_order}"] += 1
+        # F and Cl are capped at 1 in standard organic molecules
+        if symbol in ("F", "Cl"):
+            counts[f"{symbol}_1"] += 1
+        else:
+            counts[f"{symbol}_{max_order}"] += 1
 
     return counts
 
@@ -265,17 +300,29 @@ def classify_atoms_bondorder_ext(smiles: str) -> dict[str, int]:
         "H": 0,
         "N_1": 0, "N_2": 0, "N_3": 0,
         "O_1": 0, "O_2": 0, "O_3": 0,
+        "F_1": 0,
+        "S_1": 0, "S_2": 0, "S_3": 0,
+        "Cl_1": 0,
     }
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
         if symbol == "H":
             counts["H"] += 1
             continue
 
+        # F and Cl: always single bond, no H-count needed
+        if symbol in ("F", "Cl"):
+            counts[f"{symbol}_1"] += 1
+            continue
+
         max_order = min(max((int(b.GetBondTypeAsDouble()) for b in atom.GetBonds()), default=1), 3)
+
+        if symbol == "S":
+            counts[f"S_{max_order}"] += 1
+            continue
 
         if symbol != "C":
             counts[f"{symbol}_{max_order}"] += 1
@@ -305,14 +352,21 @@ def classify_atoms_bondorder_ar(smiles: str) -> dict[str, int]:
         "H": 0,
         "N_1": 0, "N_ar": 0, "N_2": 0, "N_3": 0,
         "O_1": 0, "O_ar": 0, "O_2": 0, "O_3": 0,
+        "F_1": 0,
+        "S_1": 0, "S_ar": 0, "S_2": 0, "S_3": 0,
+        "Cl_1": 0,
     }
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
         if symbol == "H":
             counts["H"] += 1
+            continue
+        # F and Cl are never aromatic
+        if symbol in ("F", "Cl"):
+            counts[f"{symbol}_1"] += 1
             continue
         max_order = max((b.GetBondTypeAsDouble() for b in atom.GetBonds()), default=1.0)
         if max_order >= 3.0:
@@ -352,15 +406,27 @@ def classify_atoms_neighbour(smiles: str) -> dict[str, int]:
         "O_sp3_C": 0, "O_sp3_N": 0, "O_sp3_O": 0,
         "O_sp2_C": 0, "O_sp2_N": 0, "O_sp2_O": 0,
         "O_sp_C":  0, "O_sp_N":  0, "O_sp_O":  0,
+        # F, S, Cl: simpler classification (no neighbour splitting)
+        "F": 0, "S_sp3": 0, "S_sp2": 0, "Cl": 0,
     }
 
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
-        if symbol not in ("C", "H", "N", "O"):
+        if symbol not in ("C", "H", "N", "O", "F", "S", "Cl"):
             continue
 
         if symbol == "H":
             counts["H"] += 1
+            continue
+
+        if symbol in ("F", "Cl"):
+            counts[symbol] += 1
+            continue
+
+        if symbol == "S":
+            hyb_label = _HYBRID_MAP.get(atom.GetHybridization(), "sp3")
+            key = "S_sp2" if hyb_label == "sp2" else "S_sp3"
+            counts[key] += 1
             continue
 
         hyb_label = _HYBRID_MAP.get(atom.GetHybridization(), "sp3")

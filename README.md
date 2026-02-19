@@ -120,24 +120,29 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 
 ## Training Data
 
-`deltahf/data/training_data.csv` contains **313 CHNO molecules** with experimental ΔHf° values from two literature sources:
+`deltahf/data/training_data.csv` contains **533 molecules** with experimental ΔHf° values covering elements C, H, N, O, F, S, Cl:
 
 | Source | Count | Description |
 |--------|-------|-------------|
 | Cawkwell et al. (2021)<sup>1</sup> | 102 | Energetic CHNO molecules + small reference compounds |
 | Yalamanchi et al. (2020)<sup>2</sup> | 211 | Cyclic hydrocarbons (CH only) |
+| ATcT v1.220<sup>3</sup> | 220 | Gas-phase ΔHf° at 298.15 K; neutral closed-shell molecules with elements C, H, N, O, F, S, Cl |
 
 Each molecule is assigned a `category` label:
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| `energetic` | 45 | Explosives, nitro/azide/nitroso compounds |
-| `small_CHNO` | 57 | Small reference molecules (methane, water, ethanol, etc.) |
 | `cyclic_HC` | 189 | Cyclic hydrocarbons (cyclopentanes through naphthalenes) |
+| `small_CHNO` | 145 | Small reference molecules (methane, water, ethanol, etc.) |
+| `energetic` | 45 | Explosives, nitro/azide/nitroso compounds |
+| `hydrocarbon` | 44 | Acyclic hydrocarbons |
+| `chlorinated` | 43 | Molecules containing Cl |
+| `fluorinated` | 40 | Molecules containing F |
+| `sulfur` | 18 | Molecules containing S |
 | `strained_3ring` | 12 | Cyclopropane derivatives and quadricyclane |
-| `large_HC` | 10 | Large PAHs (pyrene, tetracene, etc.) and decylbenzene |
+| `large_HC` | 10 | Large PAHs (pyrene, tetracene, etc.) |
 
-Elemental composition: all molecules contain only C, H, N, O. The Yalamanchi subset contains only C and H.
+The ATcT data was extracted via `scripts/extract_atct.py`; see `docs/USING_ATCT_DATA.md` for the extraction workflow and pipeline statistics.
 
 ## Examples
 
@@ -165,7 +170,7 @@ python -m deltahf fit \
     -o params.json
 ```
 
-This processes all 313 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
+This processes all 533 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
 
 ### Example 3: Predict ΔHf° for New Molecules
 
@@ -190,7 +195,7 @@ python -m deltahf predict \
 
 ### Running Benchmarks
 
-`benchmark.py` measures accuracy across all eight models, three model chemistries (xTB, gXTB, UMA), and three conformer counts (1, 3, 5). Results are reported for both the full 313-molecule training set and the 102-molecule Cawkwell2021 subset (enabling comparison with the published DFT-B baseline<sup>1</sup>).
+`benchmark.py` measures accuracy across all eight models, three model chemistries (xTB, gXTB, UMA), and three conformer counts (1, 3, 5). Results are reported for both the full training set and the 102-molecule Cawkwell2021 subset (enabling comparison with the published DFT-B baseline<sup>1</sup>).
 
 ```bash
 # xTB (CPU)
@@ -210,7 +215,7 @@ Results are cached per method × n_conformers in `.benchmark_cache/`, so re-runs
 
 ### Key Findings
 
-A comprehensive benchmark (313 molecules, n_conformers = 1, 3, 5) reveals four main findings:
+A comprehensive benchmark (Cawkwell2021 + Yalamanchi2020 subset, 313 CHNO molecules, n_conformers = 1, 3, 5) reveals four main findings:
 
 1. **Bond-order classification outperforms hybridization** — Using maximum bond order (1/2/3) from the Kekulized structure instead of RDKit hybridization labels improves accuracy at both the coarse level (`bondorder` vs `hybrid`, same 10 params) and the fine-grained level (`bondorder_ext` vs `extended`). The best model overall is `bondorder_ext` (16 params), combining bond-order labels with per-carbon H-counts.
 
@@ -226,7 +231,7 @@ A comprehensive benchmark (313 molecules, n_conformers = 1, 3, 5) reveals four m
 
 ### Results: Effect of Model Parameterisation
 
-Full dataset (310 molecules), n_conformers = 1:
+CHNO training subset (310 molecules), n_conformers = 1:
 
 | Model | Params | xTB RMSD | xTB MAD | gXTB RMSD | gXTB MAD | UMA RMSD | UMA MAD |
 |-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -310,6 +315,7 @@ pytest
 
 1. Cawkwell, M. J.; Manner, V. W.; Kress, J. D. *J. Chem. Inf. Model.* **2021**, *61*, 3337–3347 [**DOI:** 10.1021/acs.jcim.1c00312](https://doi.org/10.1021/acs.jcim.1c00312)
 2. Yalamanchi, K. K.; Monge-Palacios, M.; van Oudenhoven, V. C. O.; Gao, X.; Sarathy, S. M. *J. Phys. Chem. A* **2020**, *124*, 6270–6283 [**DOI:** 10.1021/acs.jpca.0c02785](https://doi.org/10.1021/acs.jpca.0c02785)
+3. Ruscic, B.; Bross, D. H. Active Thermochemical Tables (ATcT) values based on ver. 1.220 of the Thermochemical Network. Argonne National Laboratory, 2023. Available at https://atct.anl.gov/
 
 ---
 License: [MIT](https://opensource.org/licenses/MIT)

@@ -36,6 +36,9 @@ literature*
 *.pdf
 TODO
 
+# ATcT HTML page (4 MB, not tracked)
+docs/ATcT*.html
+
 # Claude Code (local instructions)
 CLAUDE.md
 

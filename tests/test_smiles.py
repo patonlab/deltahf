@@ -32,38 +32,41 @@ class TestSmilesToMol:
         assert h_count == 2
 
 
+_CHNO = ("C", "H", "N", "O")
+
+
 class TestCountAtoms:
     def test_methane(self):
         counts = count_atoms("C")
-        assert counts == {"C": 1, "H": 4, "N": 0, "O": 0}
+        assert {k: counts[k] for k in _CHNO} == {"C": 1, "H": 4, "N": 0, "O": 0}
 
     def test_water(self):
         counts = count_atoms("O")
-        assert counts == {"C": 0, "H": 2, "N": 0, "O": 1}
+        assert {k: counts[k] for k in _CHNO} == {"C": 0, "H": 2, "N": 0, "O": 1}
 
     def test_ammonia(self):
         counts = count_atoms("N")
-        assert counts == {"C": 0, "H": 3, "N": 1, "O": 0}
+        assert {k: counts[k] for k in _CHNO} == {"C": 0, "H": 3, "N": 1, "O": 0}
 
     def test_nitromethane(self):
         counts = count_atoms("C[N+](=O)[O-]")
-        assert counts == {"C": 1, "H": 3, "N": 1, "O": 2}
+        assert {k: counts[k] for k in _CHNO} == {"C": 1, "H": 3, "N": 1, "O": 2}
 
     def test_rdx(self):
         counts = count_atoms("O=[N+]([O-])N1CN([N+](=O)[O-])CN([N+](=O)[O-])C1")
-        assert counts == {"C": 3, "H": 6, "N": 6, "O": 6}
+        assert {k: counts[k] for k in _CHNO} == {"C": 3, "H": 6, "N": 6, "O": 6}
 
     def test_benzene(self):
         counts = count_atoms("c1ccccc1")
-        assert counts == {"C": 6, "H": 6, "N": 0, "O": 0}
+        assert {k: counts[k] for k in _CHNO} == {"C": 6, "H": 6, "N": 0, "O": 0}
 
     def test_ethanol(self):
         counts = count_atoms("CCO")
-        assert counts == {"C": 2, "H": 6, "N": 0, "O": 1}
+        assert {k: counts[k] for k in _CHNO} == {"C": 2, "H": 6, "N": 0, "O": 1}
 
     def test_hydrogen_cyanide(self):
         counts = count_atoms("C#N")
-        assert counts == {"C": 1, "H": 1, "N": 1, "O": 0}
+        assert {k: counts[k] for k in _CHNO} == {"C": 1, "H": 1, "N": 1, "O": 0}
 
     def test_invalid_smiles_raises(self):
         with pytest.raises(ValueError):
@@ -154,9 +157,9 @@ class TestClassifyAtoms7Param:
         assert counts["O_prime"] == 2
 
     def test_returns_all_seven_keys(self):
-        """Result dict always has all 7 keys."""
+        """Result dict always has all keys (CHNO + FSCl variants)."""
         counts = classify_atoms_7param("C")
-        expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime"}
+        expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime", "F", "S", "S_prime", "Cl"}
         assert set(counts.keys()) == expected_keys
 
 
@@ -195,10 +198,10 @@ class TestClassifyAtoms7ParamFromWbo:
         assert counts["H"] == 4
 
     def test_returns_all_seven_keys(self):
-        """Result dict always has all 7 keys."""
+        """Result dict always has all keys (CHNO + FSCl variants)."""
         wbos = {(0, 1): 0.99, (1, 0): 0.99}
         counts = classify_atoms_7param_from_wbo("C", wbos)
-        expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime"}
+        expected_keys = {"C", "H", "N", "O", "C_prime", "N_prime", "O_prime", "F", "S", "S_prime", "Cl"}
         assert set(counts.keys()) == expected_keys
 
 
@@ -278,7 +281,12 @@ class TestClassifyAtomsHybrid:
 
     def test_returns_all_ten_keys(self):
         counts = classify_atoms_hybrid("C")
-        expected = {"C_sp3", "C_sp2", "C_sp", "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp"}
+        expected = {
+            "C_sp3", "C_sp2", "C_sp", "H",
+            "N_sp3", "N_sp2", "N_sp",
+            "O_sp3", "O_sp2", "O_sp",
+            "F_sp3", "S_sp3", "S_sp2", "S_sp", "Cl_sp3",
+        }
         assert set(counts.keys()) == expected
 
     def test_total_atoms_match_4param(self):
@@ -365,6 +373,7 @@ class TestClassifyAtomsExtended:
             "C_sp3_3H", "C_sp3_2H", "C_sp3_1H", "C_sp3_0H",
             "C_sp2_2H", "C_sp2_1H", "C_sp2_0H", "C_sp",
             "H", "N_sp3", "N_sp2", "N_sp", "O_sp3", "O_sp2", "O_sp",
+            "F", "S_sp3", "S_sp2", "Cl",
         }
         assert set(counts.keys()) == expected
 
