@@ -18,16 +18,16 @@ from deltahf.pipeline import _best_energy_kcal, process_csv, process_molecule
 
 # Which models each --model choice expands to
 MODEL_GROUPS = {
-    "4param":           ["4param"],
-    "7param":           ["7param"],
+    "element":          ["element"],
+    "element_bo":       ["element_bo"],
     "hybrid":           ["hybrid"],
     "bondorder":        ["bondorder"],
     "bondorder_ext":    ["bondorder_ext"],
     "bondorder_ar":     ["bondorder_ar"],
     "extended":         ["extended"],
     "neighbour":        ["neighbour"],
-    "both":             ["4param", "7param"],
-    "all":              ["4param", "7param", "hybrid", "bondorder", "bondorder_ext",
+    "both":             ["element", "element_bo"],
+    "all":              ["element", "element_bo", "hybrid", "bondorder", "bondorder_ext",
                          "bondorder_ar", "extended", "neighbour"],
 }
 
@@ -168,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser.add_argument("--input", "-i", required=True, help="CSV with smiles, exp_dhf_kcal_mol columns")
     fit_parser.add_argument(
         "--model",
-        choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext",
+        choices=["element", "element_bo", "hybrid", "bondorder", "bondorder_ext",
                  "bondorder_ar", "extended", "neighbour", "both", "all"],
         default="both",
     )
@@ -185,7 +185,7 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
     fit_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
-        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification (requires --optimizer xtb)",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for element_bo atom classification (requires --optimizer xtb)",
     )
     fit_parser.add_argument(
         "--use-gxtb", action="store_true",
@@ -213,9 +213,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pred_parser.add_argument(
         "--model",
-        choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext",
+        choices=["element", "element_bo", "hybrid", "bondorder", "bondorder_ext",
                  "bondorder_ar", "extended", "neighbour"],
-        default="4param",
+        default="element",
     )
     pred_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
     pred_parser.add_argument(
@@ -225,7 +225,7 @@ def build_parser() -> argparse.ArgumentParser:
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
     pred_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
-        help="Use xTB Wiberg bond orders (instead of RDKit) for 7-param atom classification (requires --optimizer xtb)",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for element_bo atom classification (requires --optimizer xtb)",
     )
     pred_parser.add_argument(
         "--use-gxtb", action="store_true",
@@ -285,7 +285,7 @@ def cmd_fit(args):
     df = pd.read_csv(args.input)
     print(f"   Loaded {len(df)} molecules from {args.input}")
     if args.use_xtb_wbos:
-        print("   Using xTB Wiberg bond orders for 7-param atom classification")
+        print("   Using xTB Wiberg bond orders for element_bo atom classification")
 
     cache = None
     if args.cache_dir:

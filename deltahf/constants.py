@@ -49,8 +49,8 @@ PARAM_NAMES_BONDORDER_AR = [
 
 # Maps model name -> (param_names, MoleculeResult atom_counts field)
 MODEL_DEFS = {
-    "4param":         (PARAM_NAMES_4,            "atom_counts_4param"),
-    "7param":         (PARAM_NAMES_7,            "atom_counts_7param"),
+    "element":        (PARAM_NAMES_4,            "atom_counts_element"),
+    "element_bo":     (PARAM_NAMES_7,            "atom_counts_element_bo"),
     "hybrid":         (PARAM_NAMES_HYBRID,       "atom_counts_hybrid"),
     "bondorder":      (PARAM_NAMES_BONDORDER,    "atom_counts_bondorder"),
     "bondorder_ext":  (PARAM_NAMES_BONDORDER_EXT,"atom_counts_bondorder_ext"),

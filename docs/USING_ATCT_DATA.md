@@ -59,8 +59,7 @@ The script will:
 Use `--skip-pubchem` to run entirely offline (HTML-only, no API calls).
 Use `-v` / `--verbose` to see per-molecule decisions.
 
-### Step 3: Review and append
-
+### Step 4: Review and append
 Inspect `atct_out.csv` before appending. When satisfied:
 
 ```bash
@@ -70,7 +69,7 @@ tail -n +2 atct_out.csv >> deltahf/data/training_data.csv
 
 Update `tests/test_data.py` to reflect the new row count and any new source/category values.
 
-### Step 4: Refit
+### Step 5: Refit
 
 ```bash
 python -m deltahf fit \

@@ -349,7 +349,6 @@ id,name,formula,smiles,exp_dhf_kcal_mol,source,category
 348,Propionaldehyde,C3H6O,CCC=O,-44.57457,ATcT_v1.220,small_CHNO
 349,Butyraldehyde,C4H8O,CCCC=O,-49.14914,ATcT_v1.220,small_CHNO
 350,Tetrachloroethene,C2Cl4,ClC(Cl)=C(Cl)Cl,-5.114723,ATcT_v1.220,chlorinated
-351,Dihydrogen,H2,[H][H],-0.013862,ATcT_v1.220,hydrocarbon
 352,Sulfur monoxide,OS,O=S,1.431644,ATcT_v1.220,sulfur
 353,Chlorous acid,HClO2,[O-][Cl+]O,4.949809,ATcT_v1.220,chlorinated
 354,Hypofluorous acid,HFO,OF,-20.860421,ATcT_v1.220,fluorinated
@@ -435,7 +434,6 @@ id,name,formula,smiles,exp_dhf_kcal_mol,source,category
 434,"(3Z)-1,3-Hexadien-5-yne",C6H6,C#C/C=C\C=C,82.767686,ATcT_v1.220,hydrocarbon
 435,"(3E)-1,3-Hexadien-5-yne",C6H6,C#C/C=C/C=C,82.839388,ATcT_v1.220,hydrocarbon
 436,Phenylacetylene,C8H6,C#Cc1ccccc1,75.917782,ATcT_v1.220,hydrocarbon
-437,"1,2-Dichloroethene",C2H2Cl2,ClC=CCl,-0.360899,ATcT_v1.220,chlorinated
 438,"2,2,4-Trimethylpentane",C8H18,CC(C)CC(C)(C)C,-53.417782,ATcT_v1.220,hydrocarbon
 439,Ethenol,C2H4O,C=CO,-29.734704,ATcT_v1.220,small_CHNO
 440,Tetrachloromethane,CCl4,ClC(Cl)(Cl)Cl,-21.859465,ATcT_v1.220,chlorinated

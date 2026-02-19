@@ -30,7 +30,7 @@ class TestParser:
 
     def test_predict_defaults(self):
         args = build_parser().parse_args(["predict", "-i", "mol.csv", "--epsilon", "e.json"])
-        assert args.model == "4param"
+        assert args.model == "element"
         assert args.n_conformers == 1
 
     def test_no_subcommand_prints_help(self, capsys):

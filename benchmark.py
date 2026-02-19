@@ -3,7 +3,7 @@
 Compares all atom-equivalent models (MODEL_DEFS) across:
   - Methods: xTB (GFN2), gXTB (wB97M-V/def2-TZVPPD single-point), UMA (MLIP)
   - n_conformers: 1, 3, 5
-  - Subsets: all 314 training molecules AND the 102-molecule Cawkwell2021 subset
+  - Subsets: all 533 training molecules AND the 102-molecule Cawkwell2021 subset
 
 Also includes a pure-cheminformatics RF baseline (Morgan fingerprint + Random
 Forest, no quantum chemistry) via --methods rf. Requires molpipeline and
@@ -67,13 +67,13 @@ CACHE_BASE = Path(".benchmark_cache")
 _NA = float("nan")
 LITERATURE_ROWS = [
     {
-        "method": "DFT-B (lit)", "n_conformers": _NA, "model": "4param",
+        "method": "DFT-B (lit)", "n_conformers": _NA, "model": "element",
         "n_params": 4, "subset": "cawkwell", "n_molecules": 103,
         "adj_r2": _NA, "rmsd": 7.59, "mad": _NA, "max_dev": 25.48,
         "cv_rmsd": _NA, "time_sec": _NA, "hardware": None,
     },
     {
-        "method": "DFT-B (lit)", "n_conformers": _NA, "model": "7param",
+        "method": "DFT-B (lit)", "n_conformers": _NA, "model": "element_bo",
         "n_params": 7, "subset": "cawkwell", "n_molecules": 103,
         "adj_r2": _NA, "rmsd": 6.08, "mad": _NA, "max_dev": 15.01,
         "cv_rmsd": _NA, "time_sec": _NA, "hardware": None,
