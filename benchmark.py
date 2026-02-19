@@ -5,6 +5,10 @@ Compares all atom-equivalent models (MODEL_DEFS) across:
   - n_conformers: 1, 3, 5
   - Subsets: all 314 training molecules AND the 102-molecule Cawkwell2021 subset
 
+Also includes a pure-cheminformatics RF baseline (Morgan fingerprint + Random
+Forest, no quantum chemistry) via --methods rf. Requires molpipeline and
+scikit-learn: pip install molpipeline.
+
 Literature baseline rows (DFT-B + xTB geometry, Cawkwell2021, Table 2) are
 included in the CSV for direct comparison against the Cawkwell2021 subset.
 
@@ -16,6 +20,7 @@ Usage:
     python benchmark.py                                 # xTB, all conformers
     python benchmark.py --methods gxtb --append         # add gXTB to CSV
     python benchmark.py --methods uma --append          # add UMA to CSV
+    python benchmark.py --methods rf --append           # add RF baseline to CSV
     python benchmark.py --methods xtb gxtb uma          # all at once
     python benchmark.py --methods xtb --n-conformers 1  # single conformer
 """
@@ -84,6 +89,86 @@ CSV_COLUMNS = [
 # ---------------------------------------------------------------------------
 # Core benchmark logic
 # ---------------------------------------------------------------------------
+
+def run_rf_baseline(df: pd.DataFrame) -> list[dict]:
+    """Run a Morgan-fingerprint Random Forest baseline (no quantum chemistry required).
+
+    Builds a molpipeline Pipeline: SMILES -> RDKit mol -> Morgan FP (r=2, 2048 bits)
+    -> RandomForestRegressor. Reports in-sample metrics and 10-fold CV RMSD for
+    both the full training set and the Cawkwell2021 subset (each fitted independently
+    on their respective molecules, consistent with how atom-equivalent models are
+    evaluated).
+    """
+    try:
+        from molpipeline.any2mol.smiles2mol import SmilesToMol
+        from molpipeline.mol2any.mol2morgan_fingerprint import MolToMorganFP
+        from molpipeline.pipeline import Pipeline as MolPipeline
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.model_selection import KFold
+    except ImportError as exc:
+        print(f"  Skipping RF baseline: {exc}")
+        print("  Install with: pip install molpipeline")
+        return []
+
+    def _make_rf():
+        return MolPipeline([
+            ("smiles2mol", SmilesToMol()),
+            ("mol2fp", MolToMorganFP(radius=2, n_bits=2048)),
+            ("rf", RandomForestRegressor(n_estimators=100, n_jobs=4, random_state=42)),
+        ])
+
+    cawkwell_mask = (df["source"] == "Cawkwell2021").values
+    subsets = {
+        "all":      list(range(len(df))),
+        "cawkwell": [i for i in range(len(df)) if cawkwell_mask[i]],
+    }
+
+    rows = []
+    for subset_label, indices in subsets.items():
+        smiles = [df.iloc[i]["smiles"] for i in indices]
+        y = [df.iloc[i]["exp_dhf_kcal_mol"] for i in indices]
+
+        print(f"  {'─' * 56}")
+        print(f"  RF  |  {subset_label} ({len(indices)} molecules)")
+        print(f"  {'─' * 56}")
+
+        t0 = time.time()
+        rf = _make_rf()
+        rf.fit(smiles, y)
+        elapsed = time.time() - t0
+
+        predicted = list(rf.predict(smiles))
+
+        print(f"    Fit in {elapsed:.1f}s — running {KFOLD}-fold CV...")
+        kf = KFold(n_splits=KFOLD, shuffle=True, random_state=42)
+        cv_preds = [None] * len(smiles)
+        for train_idx, test_idx in kf.split(smiles):
+            X_train = [smiles[i] for i in train_idx]
+            y_train = [y[i] for i in train_idx]
+            rf_cv = _make_rf()
+            rf_cv.fit(X_train, y_train)
+            for j, pred in zip(test_idx, rf_cv.predict([smiles[i] for i in test_idx])):
+                cv_preds[j] = pred
+
+        rows.append({
+            "method": "RF",
+            "n_conformers": _NA,
+            "model": "morgan_rf",
+            "n_params": _NA,
+            "subset": subset_label,
+            "n_molecules": len(indices),
+            "adj_r2": r_squared(predicted, y, p=0),
+            "rmsd": rmsd(predicted, y),
+            "mad": mean_abs_deviation(predicted, y),
+            "max_dev": max_abs_deviation(predicted, y),
+            "cv_rmsd": rmsd(cv_preds, y),
+            "time_sec": elapsed,
+            "hardware": "CPU",
+        })
+        print(f"    in-sample RMSD={rows[-1]['rmsd']:.2f}  CV RMSD={rows[-1]['cv_rmsd']:.2f} kcal/mol")
+        print()
+
+    return rows
 
 def _compute_model_stats(results, df_indices, u_values, exp_dhf, param_names, counts_attr):
     """Fit one model on a subset and return a stats dict."""
@@ -197,7 +282,7 @@ def main():
         description="Comprehensive benchmark: parameterisation × method × n_conformers",
     )
     parser.add_argument(
-        "--methods", nargs="+", choices=list(METHODS.keys()), default=["xtb"],
+        "--methods", nargs="+", choices=list(METHODS.keys()) + ["rf"], default=["xtb"],
         help="Which method(s) to run (default: xtb)",
     )
     parser.add_argument(
@@ -223,9 +308,14 @@ def main():
     all_rows = []
     for method_key in args.methods:
         print(f"{'=' * 60}")
-        print(f"  Method: {METHODS[method_key]['label']}")
-        print(f"{'=' * 60}")
-        method_rows = run_method(method_key, args.n_conformers, df)
+        if method_key == "rf":
+            print("  Method: RF (Morgan fingerprint + Random Forest)")
+            print(f"{'=' * 60}")
+            method_rows = run_rf_baseline(df)
+        else:
+            print(f"  Method: {METHODS[method_key]['label']}")
+            print(f"{'=' * 60}")
+            method_rows = run_method(method_key, args.n_conformers, df)
         all_rows.extend(method_rows)
 
     new_df = pd.DataFrame(all_rows, columns=CSV_COLUMNS)
@@ -253,6 +343,27 @@ def main():
         print(fmt.format("method", "model", "subset", "adj_r2", "rmsd", "mad", "max_dev", "cv_rmsd"))
         print("  " + "-" * 96)
         for _, row in n1.sort_values(["subset", "method", "rmsd"]).iterrows():
+            print(fmt.format(
+                str(row["method"]),
+                str(row["model"]),
+                str(row["subset"]),
+                f"{row['adj_r2']:.4f}"  if pd.notna(row["adj_r2"])  else "—",
+                f"{row['rmsd']:.2f}"    if pd.notna(row["rmsd"])    else "—",
+                f"{row['mad']:.2f}"     if pd.notna(row["mad"])     else "—",
+                f"{row['max_dev']:.2f}" if pd.notna(row["max_dev"]) else "—",
+                f"{row['cv_rmsd']:.2f}" if pd.notna(row["cv_rmsd"]) else "—",
+            ))
+
+    rf_rows = combined[combined["method"] == "RF"]
+    if not rf_rows.empty:
+        print()
+        print(f"{'=' * 100}")
+        print("  RF BASELINE")
+        print(f"{'=' * 100}")
+        fmt = "{:<10}  {:<14}  {:<10}  {:>8}  {:>8}  {:>8}  {:>8}  {:>8}"
+        print(fmt.format("method", "model", "subset", "adj_r2", "rmsd", "mad", "max_dev", "cv_rmsd"))
+        print("  " + "-" * 96)
+        for _, row in rf_rows.sort_values("subset").iterrows():
             print(fmt.format(
                 str(row["method"]),
                 str(row["model"]),

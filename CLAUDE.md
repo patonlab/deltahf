@@ -45,9 +45,10 @@ pytest tests/test_smiles.py::TestCountAtoms::test_methane
 ruff check deltahf/ tests/
 
 # Benchmarking
-python benchmark.py  # Measures accuracy vs n_conformers (1, 3, 5), outputs benchmark_results.csv
-python benchmark.py --use-gxtb  # Same benchmark using gxtb energies
-python benchmark.py --optimizer uma  # Benchmark with UMA optimizer
+python benchmark.py --methods xtb              # xTB, all n_conformers (1,3,5)
+python benchmark.py --methods gxtb --append    # add gXTB rows to existing CSV
+python benchmark.py --methods uma --append     # add UMA rows (GPU)
+python benchmark.py --methods rf --append      # add RF cheminformatics baseline (pip install molpipeline)
 
 # CLI usage
 python -m deltahf fit -i deltahf/data/training_data.csv --model all --kfold 10 --n-conformers 1 -o params.json
@@ -56,13 +57,14 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 
 ### Common CLI Flags
 
-- `--model`: `4param`, `7param`, `hybrid`, `extended`, `both` (4+7), or `all` (for `fit`); single model for `predict`
+- `--model`: `4param`, `7param`, `hybrid`, `bondorder`, `bondorder_ext`, `bondorder_ar`, `extended`, `neighbour`, `both` (4+7), or `all` (for `fit`); single model for `predict`. Best performer: `bondorder_ext`.
 - `--n-conformers N`: Number of ETKDG conformers to optimize (default: 1)
 - `--optimizer`: `xtb` (default), `uma`, `esen`, or `aimnet2`. Selects the geometry optimizer. Non-xTB optimizers require optional dependencies (see Dependencies).
 - `--cache-dir PATH`: Cache results as JSON for restart capability. Automatically suffixed with `_xtb`, `_uma`, `_esen`, etc. (plus `_gxtb` if applicable).
 - `--use-xtb-wbos`: Use xTB Wiberg bond orders for 7-param classification instead of RDKit (disables caching; incompatible with non-xTB optimizers)
 - `--use-gxtb`: Use gxtb (wB97M-V/def2-TZVPPD) energies instead of xTB. Must be used consistently for both fit AND predict! Cache directory automatically separated.
 - `--verbose, -v`: Print per-molecule details instead of progress bar
+- `--outliers [N]` (fit only): Print the top N (default 10) outliers by |error| after each model, with functional group breakdown
 - `--csv FILE` (fit only): Output CSV with training data + predictions + errors for each model
 - `-o, --output FILE`: JSON output for fitted parameters (fit) or CSV for predictions (predict). Parameters include `_metadata` tracking the method used.
 
@@ -70,16 +72,20 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model 4param 
 
 ### Atom Equivalent Models
 
-Four atom classification schemes, each producing a different set of parameters:
+Eight atom classification schemes, each producing a different set of parameters:
 
 | Model | Max Params | Classification |
 | ----- | --------- | -------------- |
 | `4param` | 4 | Elemental stoichiometry: C, H, N, O |
-| `7param` | 7 | Adds multiply-bonded variants: C', N', O' (bond order > 1.25) |
+| `7param` | 7 | Adds multiply-bonded variants: C′, N′, O′ (bond order > 1.25) |
 | `hybrid` | 10 | RDKit hybridization: C/N/O split by sp3, sp2, sp |
+| `bondorder` | 10 | Max bond order in Kekulized structure: `_1`, `_2`, `_3` suffix |
+| `bondorder_ar` | 13 | As `bondorder` but without Kekulization, preserving aromatic bonds as `_ar` |
 | `extended` | 15 | Hybridization + H-count for carbon (e.g. C_sp3_3H, C_sp2_1H) |
+| **`bondorder_ext`** | **16** | **Bond order + H-count for carbon — best performer** |
+| `neighbour` | 27 | N/O further split by highest-priority heavy-atom neighbour (O > N > C). **Unstable in CV** (near-singular design matrix in some folds); not recommended. |
 
-Parameters with zero training examples are automatically excluded from fitting, so the actual parameter count may be less than the max (e.g., if no O_sp atoms exist in the training data, the hybrid model fits 9 parameters instead of 10).
+Parameters with zero training examples are automatically excluded from fitting, so the actual parameter count may be less than the max.
 
 ### Pipeline Flow
 
@@ -88,15 +94,16 @@ Per molecule: SMILES → RDKit mol → ETKDG conformers → MMFF ranking → opt
 ### Key Modules
 
 - `deltahf/constants.py` — single source of truth for `HARTREE_TO_KCAL`, `HARTREE_TO_EV`, `PARAM_NAMES_*`, and `MODEL_DEFS`. No deltahf imports (leaf module).
-- `deltahf/smiles.py` — SMILES→mol, `count_atoms()` (4-param), `classify_atoms_7param()`, `classify_atoms_hybrid()`, `classify_atoms_extended()`
+- `deltahf/smiles.py` — SMILES→mol, `count_atoms()` (4-param), `classify_atoms_7param()`, `classify_atoms_hybrid()`, `classify_atoms_bondorder()`, `classify_atoms_bondorder_ext()`, `classify_atoms_bondorder_ar()`, `classify_atoms_extended()`, `classify_atoms_neighbour()`
 - `deltahf/conformers.py` — ETKDG conformer generation, MMFF energy ranking, XYZ file writing
 - `deltahf/xtb.py` — xTB CLI subprocess wrapper, energy parsing (regex on stdout), Wiberg bond order parsing
 - `deltahf/uma.py` — MLIP optimizer via FAIRChem/AIMNet2 + ASE. Uses L-BFGS with `fmax=0.05` eV/Å and `DEFAULT_MAX_STEPS=250`. Loads `MODEL_DIR` from `.env` via python-dotenv. Sets `charge` and `spin` in `atoms.info` for FAIRChem. Writes plain XYZ (`format="xyz"`) for RDKit compatibility.
 - `deltahf/atom_equivalents.py` — least-squares fitting (`np.linalg.lstsq`), k-fold CV with RMSD and epsilon standard errors, adjusted R², RMSD/MAD/max deviation statistics
 - `deltahf/pipeline.py` — end-to-end orchestration: `process_molecule()`, `process_csv()`. `MoleculeResult` carries both `xtb_energy` and `mlip_energy` fields (`mlip_energy` covers UMA, eSEN, AIMNet2). Energy priority via `_best_energy_kcal()`: gxtb > mlip > xtb. Charge is auto-detected from SMILES via `Chem.GetFormalCharge()`.
 - `deltahf/cache.py` — JSON-based result caching. Cache key is canonical SMILES; lookup validates `n_conformers`, `optimizer`, and `charge` for correctness. Old cache entries without `optimizer` field default to `"xtb"` for backwards compatibility.
-- `deltahf/__main__.py` — CLI with `fit` and `predict` subcommands. MLIP model loaded once before the molecule loop (expensive); passed through to `process_molecule()`.
+- `deltahf/__main__.py` — CLI with `fit` and `predict` subcommands. MLIP model loaded once before the molecule loop (expensive); passed through to `process_molecule()`. `predict` auto-selects `params/params_{optimizer}.json` (or `params_gxtb.json`) when `--epsilon` is not supplied.
 - `deltahf/data/` — 314-molecule training dataset (CSV) and `load_training_data()` helper
+- `params/` — pre-fitted atom equivalent parameters for all 8 models: `params_xtb.json`, `params_gxtb.json`, `params_uma.json`
 
 ### Constants
 
@@ -122,13 +129,7 @@ Categories: `energetic` (45), `small_CHNO` (57), `cyclic_HC` (189), `strained_3r
 
 ## Benchmarking
 
-`benchmark.py` (in the repo root) measures how `n_conformers` affects accuracy and runtime:
-
-- Tests with `n_conformers` = 1, 3, 5
-- Runs full fitting workflow with 10-fold CV for all four models
-- Reports Adj. R², RMSD, MAD, max deviation, CV RMSD, and wall time for each configuration
-- Outputs `benchmark_results.csv` with comparative results
-- Uses separate cache directories per `n_conformers` in `.benchmark_cache/` to enable restart capability
+`benchmark.py` (in the repo root) runs a factorial benchmark: all 8 atom-equivalent models × method (xTB/gXTB/UMA/RF) × n_conformers (1/3/5) × subset (all 314 mol / Cawkwell2021 102 mol). Output: `benchmark_results.csv`. Caches per (method, n_conformers) under `.benchmark_cache/`. `--append` adds new rows to an existing CSV without rerunning completed methods. The RF baseline (`--methods rf`) uses Morgan fingerprints + Random Forest — no quantum chemistry; requires `pip install molpipeline`.
 
 ## Cache Mechanism
 

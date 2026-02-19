@@ -51,3 +51,5 @@ deltahf/data/small_training_data.csv
 xtb_benchmark_results.md
 gxtb_benchmark_results.md
 .env
+deltahf/data/small_molecule_data.csv
+benchmark_results

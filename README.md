@@ -201,6 +201,9 @@ python benchmark.py --methods gxtb --append
 
 # UMA (GPU, requires fairchem-core and MODEL_DIR) — append to existing CSV
 python benchmark.py --methods uma --append
+
+# Pure cheminformatics RF baseline (Morgan FP + Random Forest, no quantum chemistry)
+python benchmark.py --methods rf --append  # requires: pip install molpipeline
 ```
 
 Results are cached per method × n_conformers in `.benchmark_cache/`, so re-runs skip expensive optimizations. See `benchmark_results.csv` for the full output.
@@ -216,6 +219,8 @@ A comprehensive benchmark (314 molecules, n_conformers = 1, 3, 5) reveals four m
 3. **Number of conformers has minimal impact** — Increasing from n=1 to n=5 gives negligible accuracy gains (<1% RMSD change) at a cost of 3–4× more computation. Use `--n-conformers 1` (the default).
 
 4. **xTB + bondorder_ext matches or exceeds the published DFT-B baseline** — On the 102-molecule Cawkwell2021 subset, xTB + `bondorder_ext` (RMSD = 6.91 kcal/mol) approaches the DFT-B + 7param result (RMSD = 6.08 kcal/mol) from Cawkwell et al.<sup>1</sup>, while gXTB and UMA substantially surpass it.
+
+5. **The physics prior from xTB is essential** — A pure cheminformatics baseline (Morgan fingerprint + Random Forest, no quantum chemistry) achieved an in-sample RMSD of 8.89 kcal/mol but a cross-validated RMSD of 22.9 kcal/mol on the full training set — dramatically worse than even the simplest xTB model (4param, CV RMSD = 11.5 kcal/mol). The severe overfitting reflects the small dataset size (314 molecules, 2048-dimensional fingerprint). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly, requiring only 4–16 scalar parameters.
 
 > **Note on the `neighbour` model:** The `neighbour` model (27 params) shows competitive training-set RMSD but produces an extremely large cross-validation RMSD (hundreds of kcal/mol), indicating instability with near-singular design matrix in some CV folds. It is not recommended for practical use.
 
