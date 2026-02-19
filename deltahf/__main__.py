@@ -27,7 +27,8 @@ MODEL_GROUPS = {
     "extended":         ["extended"],
     "neighbour":        ["neighbour"],
     "both":             ["4param", "7param"],
-    "all":              ["4param", "7param", "hybrid", "bondorder", "bondorder_ext", "bondorder_ar", "extended", "neighbour"],
+    "all":              ["4param", "7param", "hybrid", "bondorder", "bondorder_ext",
+                         "bondorder_ar", "extended", "neighbour"],
 }
 
 BANNER = (
@@ -166,13 +167,19 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser = subparsers.add_parser("fit", help="Fit atom equivalent energies to training data")
     fit_parser.add_argument("--input", "-i", required=True, help="CSV with smiles, exp_dhf_kcal_mol columns")
     fit_parser.add_argument(
-        "--model", choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext", "bondorder_ar", "extended", "neighbour", "both", "all"], default="both",
+        "--model",
+        choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext",
+                 "bondorder_ar", "extended", "neighbour", "both", "all"],
+        default="both",
     )
     fit_parser.add_argument("--kfold", type=int, default=10, help="Number of CV folds")
     fit_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
     fit_parser.add_argument(
         "--optimizer", choices=["xtb", "uma", "esen", "aimnet2"], default="xtb",
-        help="Geometry optimizer: 'xtb' (default, requires xTB binary), 'uma'/'esen' (requires fairchem-core and MODEL_DIR), 'aimnet2' (requires aimnet2calc)",
+        help=(
+            "Geometry optimizer: 'xtb' (default, requires xTB binary), "
+            "'uma'/'esen' (requires fairchem-core and MODEL_DIR), 'aimnet2' (requires aimnet2calc)"
+        ),
     )
     fit_parser.add_argument("--output", "-o", help="Output JSON file for fitted epsilon values")
     fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
@@ -200,8 +207,16 @@ def build_parser() -> argparse.ArgumentParser:
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
     pred_parser.add_argument("--input", "-i", required=True, help="CSV with smiles column")
-    pred_parser.add_argument("--epsilon", required=False, help="JSON file with fitted epsilon values (uses defaults if not specified)")
-    pred_parser.add_argument("--model", choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext", "bondorder_ar", "extended", "neighbour"], default="4param")
+    pred_parser.add_argument(
+        "--epsilon", required=False,
+        help="JSON file with fitted epsilon values (uses defaults if not specified)",
+    )
+    pred_parser.add_argument(
+        "--model",
+        choices=["4param", "7param", "hybrid", "bondorder", "bondorder_ext",
+                 "bondorder_ar", "extended", "neighbour"],
+        default="4param",
+    )
     pred_parser.add_argument("--n-conformers", type=int, default=1, help="Number of conformers to optimize")
     pred_parser.add_argument(
         "--optimizer", choices=["xtb", "uma", "esen", "aimnet2"], default="xtb",
@@ -464,7 +479,7 @@ def cmd_predict(args):
             sys.exit(1)
 
         print(f"   WARNING: Using default parameters from {epsilon_file}")
-        print(f"            Specify --epsilon to use custom parameters\n")
+        print("            Specify --epsilon to use custom parameters\n")
 
     with open(epsilon_file) as f:
         epsilon_data = json.load(f)
@@ -477,14 +492,14 @@ def cmd_predict(args):
     current_optimizer = args.optimizer
 
     if param_method != current_method or param_optimizer != current_optimizer:
-        print(f"\n   WARNING: Method mismatch detected!")
+        print("\n   WARNING: Method mismatch detected!")
         print(f"   Parameters fitted with optimizer={param_optimizer}, energy={param_method}")
         print(f"   You are predicting with optimizer={current_optimizer}, energy={current_method}")
-        print(f"   This will produce incorrect results - energies are on different scales!")
-        print(f"\n   Either:")
+        print("   This will produce incorrect results - energies are on different scales!")
+        print("\n   Either:")
         print(f"     - Match the fit settings (--optimizer {param_optimizer}" +
               (" --use-gxtb" if param_method == "gxtb" else "") + ")")
-        print(f"     - Refit parameters using your current settings\n")
+        print("     - Refit parameters using your current settings\n")
         sys.exit(1)
 
     epsilon = epsilon_data.get(args.model, epsilon_data)

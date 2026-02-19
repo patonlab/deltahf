@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torchtnt")
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*warp\\.vec.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="warp")
 
-from deltahf.constants import HARTREE_TO_EV
+from deltahf.constants import HARTREE_TO_EV  # noqa: E402
 
 DEFAULT_MAX_STEPS = 250
 

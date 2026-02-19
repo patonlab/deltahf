@@ -1,8 +1,9 @@
 """Tests for element validation."""
 
 import pytest
-from deltahf.smiles import validate_elements, SUPPORTED_ELEMENTS
+
 from deltahf.pipeline import process_molecule
+from deltahf.smiles import SUPPORTED_ELEMENTS, validate_elements
 
 
 class TestElementValidation:

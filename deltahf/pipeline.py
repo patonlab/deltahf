@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from deltahf.atom_equivalents import predict_dhf
-from deltahf.constants import HARTREE_TO_KCAL
 from deltahf.conformers import (
     check_connectivity,
     generate_conformers,
@@ -18,6 +17,7 @@ from deltahf.conformers import (
     prune_conformers,
     write_xyz,
 )
+from deltahf.constants import HARTREE_TO_KCAL
 from deltahf.smiles import (
     classify_atoms_7param,
     classify_atoms_7param_from_wbo,
@@ -268,9 +268,13 @@ def process_molecule(
         if epsilon_bondorder:
             result.dhf_bondorder = predict_dhf(energy_for_prediction, result.atom_counts_bondorder, epsilon_bondorder)
         if epsilon_bondorder_ext:
-            result.dhf_bondorder_ext = predict_dhf(energy_for_prediction, result.atom_counts_bondorder_ext, epsilon_bondorder_ext)
+            result.dhf_bondorder_ext = predict_dhf(
+                energy_for_prediction, result.atom_counts_bondorder_ext, epsilon_bondorder_ext
+            )
         if epsilon_bondorder_ar:
-            result.dhf_bondorder_ar = predict_dhf(energy_for_prediction, result.atom_counts_bondorder_ar, epsilon_bondorder_ar)
+            result.dhf_bondorder_ar = predict_dhf(
+                energy_for_prediction, result.atom_counts_bondorder_ar, epsilon_bondorder_ar
+            )
         if epsilon_extended:
             result.dhf_extended = predict_dhf(energy_for_prediction, result.atom_counts_extended, epsilon_extended)
         if epsilon_neighbour:
