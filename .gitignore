@@ -30,27 +30,22 @@ xtbopt.log
 xtbopt.xyz
 .xtboptok
 
-# Supplementary data (large files, not tracked)
+# Supplementary data (not tracked)
 literature*
 *.xlsx
-TODO
 *.pdf
+TODO
 
-# Claude Code
+# Claude Code (local instructions)
 CLAUDE.md
 
 # Run outputs
 params.json
 fit_results.csv
-.xtb_cache/cache.json
-Database compiled.csv
 benchmark_results.csv
 .benchmark_cache/
 .cache/
-.cache_xtb
-deltahf/data/small_training_data.csv
-xtb_benchmark_results.md
-gxtb_benchmark_results.md
+.cache_xtb/
 .env
+deltahf/data/small_training_data.csv
 deltahf/data/small_molecule_data.csv
-benchmark_results

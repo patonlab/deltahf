@@ -49,5 +49,5 @@ axes[0].legend(framealpha=0.9, fontsize=10)
 
 fig.suptitle("Training data: heat of formation distributions", fontsize=13, y=1.02)
 plt.tight_layout()
-plt.savefig("training_data_histogram.png", dpi=150, bbox_inches="tight")
-print("Saved training_data_histogram.png")
+plt.savefig("plots/training_data_histogram.png", dpi=150, bbox_inches="tight")
+print("Saved plots/training_data_histogram.png")
