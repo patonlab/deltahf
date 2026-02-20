@@ -144,7 +144,7 @@ Each molecule is assigned a `category` label:
 
 Category labels (`cyclic_HC`, `small_CHNO`, `energetic`, `hydrocarbon`, `chlorinated`, `fluorinated`, `sulfur`, `strained_3ring`, `large_HC`) are mutually exclusive in `training_data.csv` and sum to the total 533 molecules. Parameter-file metadata (`_metadata.n_molecules`) records successful molecules used during fitting and may therefore be lower than 533 for a given method.
 
-The ATcT data was extracted via `scripts/extract_atct.py`; see `docs/USING_ATCT_DATA.md` for the extraction workflow and pipeline statistics.
+The ATcT data was extracted via `atct/extract_atct.py`; see `atct/USING_ATCT_DATA.md` for the extraction workflow and pipeline statistics.
 
 ## Examples
 

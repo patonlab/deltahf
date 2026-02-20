@@ -92,38 +92,55 @@ def write_xyz(mol: Chem.Mol, conf_id: int, path: Path) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
+def _heavy_adj_equal(mol_a: Chem.Mol, mol_b: Chem.Mol) -> bool:
+    """Compare adjacency matrices for heavy atoms only.
+
+    Ignores differences in H connectivity (tautomers, proton transfers).
+    Falls back to full-adjacency comparison for all-hydrogen molecules
+    (e.g. H2) where there are no heavy atoms to compare.
+    """
+    heavy_a = [a.GetIdx() for a in mol_a.GetAtoms() if a.GetAtomicNum() != 1]
+    heavy_b = [a.GetIdx() for a in mol_b.GetAtoms() if a.GetAtomicNum() != 1]
+    if len(heavy_a) != len(heavy_b):
+        return False
+    adj_a = rdmolops.GetAdjacencyMatrix(mol_a, useBO=False)
+    adj_b = rdmolops.GetAdjacencyMatrix(mol_b, useBO=False)
+    # No heavy atoms (e.g. H2): fall back to full adjacency
+    if not heavy_a:
+        return bool(np.array_equal(adj_a, adj_b))
+    return bool(np.array_equal(
+        adj_a[np.ix_(heavy_a, heavy_a)],
+        adj_b[np.ix_(heavy_b, heavy_b)],
+    ))
+
+
 def check_connectivity(mol_ref: Chem.Mol, xyz_path: Path) -> bool:
-    """Check whether optimized geometry has the same connectivity as the reference.
+    """Check whether optimized geometry has the same heavy-atom connectivity as the reference.
 
     Reads the optimized XYZ file, perceives bonds using RDKit's
-    DetermineConnectivity, and compares adjacency matrices (ignoring
-    bond orders) with the reference molecule.
+    DetermineConnectivity, and compares heavy-atom adjacency matrices with
+    the reference molecule. H-only changes (tautomerism, proton transfers)
+    are tolerated; changes to heavy-atom bonding are rejected.
 
     Uses the connect-the-dots method first. If that finds a mismatch
     (e.g. slightly stretched bonds in H2), retries with the van der Waals
     method at a more generous covFactor before declaring isomerization.
 
-    Returns True if connectivity matches, False if isomerized or unreadable.
+    Returns True if heavy-atom connectivity matches, False if isomerized or unreadable.
     """
     mol_opt = Chem.MolFromXYZFile(str(xyz_path))
     if mol_opt is None:
         return False
-
-    adj_ref = rdmolops.GetAdjacencyMatrix(mol_ref, useBO=False)
 
     if mol_ref.GetNumAtoms() != mol_opt.GetNumAtoms():
         return False
 
     # Primary: connect-the-dots (default)
     rdDetermineBonds.DetermineConnectivity(mol_opt)
-    adj_opt = rdmolops.GetAdjacencyMatrix(mol_opt, useBO=False)
-
-    if np.array_equal(adj_ref, adj_opt):
+    if _heavy_adj_equal(mol_ref, mol_opt):
         return True
 
     # Fallback: VdW method with generous covFactor for stretched bonds
     mol_opt2 = Chem.MolFromXYZFile(str(xyz_path))
     rdDetermineBonds.DetermineConnectivity(mol_opt2, useVdw=True, covFactor=2.0)
-    adj_opt2 = rdmolops.GetAdjacencyMatrix(mol_opt2, useBO=False)
-
-    return bool(np.array_equal(adj_ref, adj_opt2))
+    return _heavy_adj_equal(mol_ref, mol_opt2)

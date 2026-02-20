@@ -37,7 +37,10 @@ literature*
 TODO
 
 # ATcT HTML page (4 MB, not tracked)
-docs/ATcT*.html
+atct/ATcT*.html
+
+# ATcT PubChem SMILES cache
+atct/atct_smiles_cache.json
 
 # Claude Code (local instructions)
 CLAUDE.md
@@ -46,9 +49,12 @@ CLAUDE.md
 params.json
 fit_results.csv
 benchmark_results.csv
+mols.csv
 .benchmark_cache/
 .cache/
 .cache_xtb/
+.cache_xtb_*/
+nohup.out
 .env
 deltahf/data/small_training_data.csv
 deltahf/data/small_molecule_data.csv

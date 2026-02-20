@@ -2,7 +2,9 @@
 
 import argparse
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 from deltahf.atom_equivalents import (
@@ -203,6 +205,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--outliers", nargs="?", const=10, default=0, type=int, metavar="N",
         help="Print the top N outliers by |error| after each model's statistics (default N=10 if flag given)",
     )
+    fit_parser.add_argument(
+        "--xtb-threads", type=int, default=None, metavar="N",
+        help="Number of OpenMP threads for xTB (default: all available CPUs)",
+    )
 
     # --- predict subcommand ---
     pred_parser = subparsers.add_parser("predict", help="Predict DeltaHf for new molecules")
@@ -238,6 +244,10 @@ def build_parser() -> argparse.ArgumentParser:
     pred_parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Print per-molecule details instead of a progress bar",
+    )
+    pred_parser.add_argument(
+        "--xtb-threads", type=int, default=None, metavar="N",
+        help="Number of OpenMP threads for xTB (default: all available CPUs)",
     )
 
     return parser
@@ -278,6 +288,11 @@ def cmd_fit(args):
         print("   Using gxtb energies (wB97M-V/def2-TZVPPD approximation)")
         print("   WARNING: gxtb and xTB energies are on different scales - do not mix workflows!")
         print()
+
+    xtb_threads = None
+    if args.optimizer == "xtb":
+        xtb_threads = args.xtb_threads if args.xtb_threads is not None else os.cpu_count()
+        print(f"   xTB threads: {xtb_threads}")
 
     print(CITATIONS)
     print()
@@ -321,6 +336,7 @@ def cmd_fit(args):
                 smiles, n_conformers=args.n_conformers, name=name,
                 optimizer=args.optimizer, predictor=predictor,
                 use_xtb_wbos=args.use_xtb_wbos, use_gxtb=args.use_gxtb, cache=cache,
+                xtb_threads=xtb_threads,
             )
             if result.error:
                 print(f"         ERROR: {result.error}")
@@ -342,6 +358,7 @@ def cmd_fit(args):
                 smiles, n_conformers=args.n_conformers, name=name,
                 optimizer=args.optimizer, predictor=predictor,
                 use_xtb_wbos=args.use_xtb_wbos, use_gxtb=args.use_gxtb, cache=cache,
+                xtb_threads=xtb_threads,
             )
             if result.error:
                 errors.append(f"{name}: {result.error}")
@@ -431,8 +448,46 @@ def cmd_fit(args):
         print(f"   Results CSV saved to {args.csv}")
 
 
+def _print_default_model_info(epsilon_data: dict, model: str, epsilon: dict, method: str = "xtb") -> None:
+    """Print elemental coverage, training info, and benchmark accuracy for default params."""
+    known_elements = {"C", "H", "N", "O", "F", "S", "Cl"}
+    covered = []
+    seen = set()
+    for key in epsilon:
+        elem = key.split("_")[0]
+        if elem in known_elements and elem not in seen:
+            seen.add(elem)
+            covered.append(elem)
+
+    training = epsilon_data.get("_training", {})
+    benchmark = epsilon_data.get("_benchmark", {})
+    n_mol = training.get("n_molecules", "?")
+    datasets = training.get("datasets", [])
+    rmsd = benchmark.get(model)
+
+    n_params = len(epsilon)
+    param_names = ", ".join(epsilon.keys())
+
+    method_display = {"xtb": "xTB", "gxtb": "gXTB", "uma": "UMA"}.get(method, method.upper())
+    rmsd_label = f"Benchmark RMSD({method_display})"
+
+    print(SEP)
+    print(f"   Default model: {model}")
+    print(f"   {'Elements covered':<20}: {', '.join(covered)}")
+    print(f"   {'Training data':<20}: {n_mol} molecules")
+    for ds in datasets:
+        print(f"   {'':<22}  {ds}")
+    print(f"   {'Parameters (' + str(n_params) + ')':<20}: {param_names}")
+    if rmsd is not None:
+        print(f"   {rmsd_label:<20}: {rmsd:.2f} kcal/mol")
+    print(SEP)
+    print()
+
+
 def cmd_predict(args):
     """Run the prediction workflow."""
+    t0 = time.monotonic()
+
     if args.use_xtb_wbos and args.optimizer != "xtb":
         print(f"   Error: --use-xtb-wbos requires --optimizer xtb (got '{args.optimizer}')")
         sys.exit(1)
@@ -481,6 +536,8 @@ def cmd_predict(args):
         print(f"   WARNING: Using default parameters from {epsilon_file}")
         print("            Specify --epsilon to use custom parameters\n")
 
+    using_defaults = not args.epsilon
+
     with open(epsilon_file) as f:
         epsilon_data = json.load(f)
 
@@ -503,6 +560,14 @@ def cmd_predict(args):
         sys.exit(1)
 
     epsilon = epsilon_data.get(args.model, epsilon_data)
+
+    if using_defaults:
+        _print_default_model_info(epsilon_data, args.model, epsilon, method=param_method)
+
+    xtb_threads = None
+    if args.optimizer == "xtb":
+        xtb_threads = args.xtb_threads if args.xtb_threads is not None else os.cpu_count()
+        print(f"   xTB threads: {xtb_threads}")
 
     cache = None
     if args.cache_dir:
@@ -534,6 +599,7 @@ def cmd_predict(args):
         use_gxtb=args.use_gxtb,
         cache=cache,
         verbose=args.verbose,
+        xtb_threads=xtb_threads,
         **epsilon_kwargs,
     )
 
@@ -564,6 +630,9 @@ def cmd_predict(args):
     if args.output:
         print(f"\n   Results saved to {args.output}")
 
+    elapsed = time.monotonic() - t0
+    print(f"\n   Elapsed: {elapsed:.1f} s")
+
 
 def main(argv=None):
     from rdkit import RDLogger
@@ -577,7 +646,9 @@ def main(argv=None):
         parser.print_help()
         sys.exit(1)
 
+    import datetime
     print(BANNER)
+    print(f"   Started: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     if args.command == "fit":
         cmd_fit(args)

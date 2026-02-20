@@ -35,6 +35,7 @@ def build_xtb_command(
     gfn: int = 2,
     charge: int = 0,
     uhf: int = 0,
+    parallel: int | None = None,
 ) -> list[str]:
     """Build xtb command line arguments."""
     cmd = ["xtb", str(xyz_path)]
@@ -44,6 +45,8 @@ def build_xtb_command(
     cmd.extend(["--chrg", str(charge)])
     if uhf > 0:
         cmd.extend(["--uhf", str(uhf)])
+    if parallel is not None:
+        cmd.extend(["--parallel", str(parallel)])
     return cmd
 
 
@@ -81,12 +84,21 @@ def run_xtb_optimization(
     gfn: int = 2,
     charge: int = 0,
     timeout: int = 300,
+    parallel: int | None = None,
 ) -> XtbResult:
     """Run xTB geometry optimization and return results."""
+    import os
     find_xtb_binary()
-    cmd = build_xtb_command(str(xyz_path), opt=True, gfn=gfn, charge=charge)
+    cmd = build_xtb_command(str(xyz_path), opt=True, gfn=gfn, charge=charge, parallel=parallel)
 
     work_dir = xyz_path.parent
+
+    env = os.environ.copy()
+    if parallel is not None:
+        # Constrain both OpenMP and BLAS thread pools to avoid oversubscription
+        env["OMP_NUM_THREADS"] = str(parallel)
+        env["MKL_NUM_THREADS"] = str(parallel)
+        env["OPENBLAS_NUM_THREADS"] = str(parallel)
 
     try:
         result = subprocess.run(
@@ -97,6 +109,7 @@ def run_xtb_optimization(
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return XtbResult(energy=float("nan"), optimized_xyz_path=None, converged=False, stdout="Timeout expired")

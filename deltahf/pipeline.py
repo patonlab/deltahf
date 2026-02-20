@@ -98,6 +98,7 @@ def process_molecule(
     use_xtb_wbos: bool = False,
     use_gxtb: bool = False,
     cache: ResultCache | None = None,
+    xtb_threads: int | None = None,
 ) -> MoleculeResult:
     """Full pipeline for a single molecule."""
     result = MoleculeResult(smiles=smiles, name=name)
@@ -185,7 +186,7 @@ def process_molecule(
             write_xyz(mol, cid, xyz_path)
 
             if optimizer == "xtb":
-                opt_result = run_xtb_optimization(xyz_path)
+                opt_result = run_xtb_optimization(xyz_path, parallel=xtb_threads)
                 opt_wbo_path = opt_result.wbo_path
             else:
                 from deltahf.uma import run_mlip_optimization
@@ -304,6 +305,7 @@ def process_csv(
     use_gxtb: bool = False,
     cache: ResultCache | None = None,
     verbose: bool = False,
+    xtb_threads: int | None = None,
 ) -> pd.DataFrame:
     """Process a CSV of SMILES and return a DataFrame of MoleculeResult fields.
 
@@ -343,6 +345,7 @@ def process_csv(
             use_xtb_wbos=use_xtb_wbos,
             use_gxtb=use_gxtb,
             cache=cache,
+            xtb_threads=xtb_threads,
         )
         results.append(mol_result)
 

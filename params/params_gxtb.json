@@ -145,5 +145,20 @@
     "method": "gxtb",
     "n_conformers": 1,
     "n_molecules": 529
+  },
+  "_training": {
+    "n_molecules": 529,
+    "datasets": [
+      "Cawkwell et al. 2021 (102 mol, energetic CHNO)",
+      "Yalamanchi et al. 2020 (211 mol, cyclic hydrocarbons)",
+      "ATcT v1.220 (220 mol, C/H/N/O/F/S/Cl)"
+    ]
+  },
+  "_benchmark": {
+    "element": 4.36,
+    "element_bo": 4.06,
+    "hybrid": 4.10,
+    "bondorder": 3.95,
+    "bondorder_ext": 3.82
   }
 }

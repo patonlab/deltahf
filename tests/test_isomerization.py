@@ -47,15 +47,24 @@ class TestCheckConnectivity:
         assert check_connectivity(mol_ethanol, xyz_path) is False
 
     def test_broken_bond_detected(self, tmp_path):
-        """Move an atom far away to simulate a bond break."""
+        """Move a heavy atom far away to simulate a bond break."""
         mol, xyz_path = self._make_xyz("CCO", tmp_path)
-        # Read the XYZ, move the last H far away
+        # XYZ atom order: C, C, O, then Hs. Move the O (line index 4) far away.
         lines = xyz_path.read_text().splitlines()
-        parts = lines[-1].split()
-        # Move to 100 angstroms away
-        lines[-1] = f"{parts[0]}  100.000000   100.000000   100.000000"
+        parts = lines[4].split()
+        lines[4] = f"{parts[0]}  100.000000   100.000000   100.000000"
         xyz_path.write_text("\n".join(lines) + "\n")
         assert check_connectivity(mol, xyz_path) is False
+
+    def test_proton_transfer_allowed(self, tmp_path):
+        """H-only connectivity change (proton transfer / tautomer) should pass."""
+        mol, xyz_path = self._make_xyz("CCO", tmp_path)
+        # Move the last H far away — heavy-atom skeleton is unchanged
+        lines = xyz_path.read_text().splitlines()
+        parts = lines[-1].split()
+        lines[-1] = f"{parts[0]}  100.000000   100.000000   100.000000"
+        xyz_path.write_text("\n".join(lines) + "\n")
+        assert check_connectivity(mol, xyz_path) is True
 
     def test_nonexistent_file_returns_false(self, tmp_path):
         mol = smiles_to_mol("C")
