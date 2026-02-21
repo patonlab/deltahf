@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from rdkit import Chem
@@ -93,18 +93,4 @@ class ResultCache:
 
     def store(self, result: CachedResult) -> None:
         key = self._make_key(result.canonical_smiles)
-        self._data[key] = {
-            "canonical_smiles": result.canonical_smiles,
-            "optimizer": result.optimizer,
-            "xtb_energy": result.xtb_energy,
-            "xtb_energy_kcal": result.xtb_energy_kcal,
-            "n_conformers": result.n_conformers,
-            "n_conformers_optimized": result.n_conformers_optimized,
-            "n_conformers_isomerized": result.n_conformers_isomerized,
-            "gfn_level": result.gfn_level,
-            "charge": result.charge,
-            "gxtb_energy": result.gxtb_energy,
-            "gxtb_energy_kcal": result.gxtb_energy_kcal,
-            "mlip_energy": result.mlip_energy,
-            "mlip_energy_kcal": result.mlip_energy_kcal,
-        }
+        self._data[key] = asdict(result)

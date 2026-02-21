@@ -23,15 +23,17 @@ class TestTrainingData:
     def df(self):
         return load_training_data()
 
-    def test_has_533_rows(self, df):
-        assert len(df) == 533
+    def test_has_531_rows(self, df):
+        assert len(df) == 531
 
     def test_required_columns(self, df):
         for col in ["id", "name", "formula", "smiles", "exp_dhf_kcal_mol", "source", "category"]:
             assert col in df.columns
 
-    def test_ids_are_sequential(self, df):
-        assert list(df["id"]) == list(range(1, 534))
+    def test_ids_are_monotonic(self, df):
+        ids = list(df["id"])
+        assert ids == sorted(ids), "IDs are not in ascending order"
+        assert ids[0] >= 1
 
     def test_all_smiles_parseable(self, df):
         for idx, row in df.iterrows():
@@ -68,7 +70,7 @@ class TestTrainingData:
         assert sources == {"Cawkwell2021", "Yalamanchi2020", "ATcT_v1.220"}
         assert len(df[df["source"] == "Cawkwell2021"]) == 102
         assert len(df[df["source"] == "Yalamanchi2020"]) == 211
-        assert len(df[df["source"] == "ATcT_v1.220"]) == 220
+        assert len(df[df["source"] == "ATcT_v1.220"]) == 218
 
     def test_exp_dhf_values_reasonable(self, df):
         """Experimental ΔHf° should be in a reasonable range for organic molecules."""

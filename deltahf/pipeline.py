@@ -79,6 +79,37 @@ def _best_energy_kcal(result: "MoleculeResult") -> float | None:
     return result.gxtb_energy_kcal or result.mlip_energy_kcal or result.xtb_energy_kcal
 
 
+def _apply_predictions(
+    result: "MoleculeResult",
+    energy_kcal: float | None,
+    epsilon_element: dict | None,
+    epsilon_element_bo: dict | None,
+    epsilon_hybrid: dict | None,
+    epsilon_bondorder: dict | None,
+    epsilon_bondorder_ext: dict | None,
+    epsilon_bondorder_ar: dict | None,
+    epsilon_extended: dict | None,
+    epsilon_neighbour: dict | None,
+) -> None:
+    """Populate all dhf_* fields on result from the given energy and epsilon dicts."""
+    if epsilon_element:
+        result.dhf_element = predict_dhf(energy_kcal, result.atom_counts_element, epsilon_element)
+    if epsilon_element_bo:
+        result.dhf_element_bo = predict_dhf(energy_kcal, result.atom_counts_element_bo, epsilon_element_bo)
+    if epsilon_hybrid:
+        result.dhf_hybrid = predict_dhf(energy_kcal, result.atom_counts_hybrid, epsilon_hybrid)
+    if epsilon_bondorder:
+        result.dhf_bondorder = predict_dhf(energy_kcal, result.atom_counts_bondorder, epsilon_bondorder)
+    if epsilon_bondorder_ext:
+        result.dhf_bondorder_ext = predict_dhf(energy_kcal, result.atom_counts_bondorder_ext, epsilon_bondorder_ext)
+    if epsilon_bondorder_ar:
+        result.dhf_bondorder_ar = predict_dhf(energy_kcal, result.atom_counts_bondorder_ar, epsilon_bondorder_ar)
+    if epsilon_extended:
+        result.dhf_extended = predict_dhf(energy_kcal, result.atom_counts_extended, epsilon_extended)
+    if epsilon_neighbour:
+        result.dhf_neighbour = predict_dhf(energy_kcal, result.atom_counts_neighbour, epsilon_neighbour)
+
+
 def process_molecule(
     smiles: str,
     n_conformers: int = 1,
@@ -132,39 +163,12 @@ def process_molecule(
                 result.gxtb_energy_kcal = cached.gxtb_energy_kcal
                 result.n_conformers_optimized = cached.n_conformers_optimized
                 result.n_conformers_isomerized = cached.n_conformers_isomerized
-                energy_for_prediction = _best_energy_kcal(result)
-                if epsilon_element:
-                    result.dhf_element = predict_dhf(
-                        energy_for_prediction, result.atom_counts_element, epsilon_element
-                    )
-                if epsilon_element_bo:
-                    result.dhf_element_bo = predict_dhf(
-                        energy_for_prediction, result.atom_counts_element_bo, epsilon_element_bo
-                    )
-                if epsilon_hybrid:
-                    result.dhf_hybrid = predict_dhf(
-                        energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid
-                    )
-                if epsilon_bondorder:
-                    result.dhf_bondorder = predict_dhf(
-                        energy_for_prediction, result.atom_counts_bondorder, epsilon_bondorder
-                    )
-                if epsilon_bondorder_ext:
-                    result.dhf_bondorder_ext = predict_dhf(
-                        energy_for_prediction, result.atom_counts_bondorder_ext, epsilon_bondorder_ext
-                    )
-                if epsilon_bondorder_ar:
-                    result.dhf_bondorder_ar = predict_dhf(
-                        energy_for_prediction, result.atom_counts_bondorder_ar, epsilon_bondorder_ar
-                    )
-                if epsilon_extended:
-                    result.dhf_extended = predict_dhf(
-                        energy_for_prediction, result.atom_counts_extended, epsilon_extended
-                    )
-                if epsilon_neighbour:
-                    result.dhf_neighbour = predict_dhf(
-                        energy_for_prediction, result.atom_counts_neighbour, epsilon_neighbour
-                    )
+                _apply_predictions(
+                    result, _best_energy_kcal(result),
+                    epsilon_element, epsilon_element_bo, epsilon_hybrid,
+                    epsilon_bondorder, epsilon_bondorder_ext, epsilon_bondorder_ar,
+                    epsilon_extended, epsilon_neighbour,
+                )
                 return result
 
         mol, energies = generate_conformers(smiles, num_confs=num_initial_confs)
@@ -258,28 +262,12 @@ def process_molecule(
             wbos = parse_wbo_file(best_wbo_path)
             result.atom_counts_element_bo = classify_atoms_7param_from_wbo(smiles, wbos)
 
-        energy_for_prediction = _best_energy_kcal(result)
-
-        if epsilon_element:
-            result.dhf_element = predict_dhf(energy_for_prediction, result.atom_counts_element, epsilon_element)
-        if epsilon_element_bo:
-            result.dhf_element_bo = predict_dhf(energy_for_prediction, result.atom_counts_element_bo, epsilon_element_bo)
-        if epsilon_hybrid:
-            result.dhf_hybrid = predict_dhf(energy_for_prediction, result.atom_counts_hybrid, epsilon_hybrid)
-        if epsilon_bondorder:
-            result.dhf_bondorder = predict_dhf(energy_for_prediction, result.atom_counts_bondorder, epsilon_bondorder)
-        if epsilon_bondorder_ext:
-            result.dhf_bondorder_ext = predict_dhf(
-                energy_for_prediction, result.atom_counts_bondorder_ext, epsilon_bondorder_ext
-            )
-        if epsilon_bondorder_ar:
-            result.dhf_bondorder_ar = predict_dhf(
-                energy_for_prediction, result.atom_counts_bondorder_ar, epsilon_bondorder_ar
-            )
-        if epsilon_extended:
-            result.dhf_extended = predict_dhf(energy_for_prediction, result.atom_counts_extended, epsilon_extended)
-        if epsilon_neighbour:
-            result.dhf_neighbour = predict_dhf(energy_for_prediction, result.atom_counts_neighbour, epsilon_neighbour)
+        _apply_predictions(
+            result, _best_energy_kcal(result),
+            epsilon_element, epsilon_element_bo, epsilon_hybrid,
+            epsilon_bondorder, epsilon_bondorder_ext, epsilon_bondorder_ar,
+            epsilon_extended, epsilon_neighbour,
+        )
 
     except Exception as e:
         result.error = str(e)

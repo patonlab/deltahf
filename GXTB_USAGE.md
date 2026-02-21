@@ -32,7 +32,7 @@ python -m deltahf fit \
 python -m deltahf predict \
   -i molecules.csv \
   --epsilon params_xtb.json \
-  --model 4param \
+  --model element \
   --n-conformers 5 \
   --cache-dir .cache/predict \
   -o results.csv
@@ -56,7 +56,7 @@ python -m deltahf fit \
 python -m deltahf predict \
   -i molecules.csv \
   --epsilon params_gxtb.json \
-  --model 4param \
+  --model element \
   --n-conformers 5 \
   --use-gxtb \
   --cache-dir .cache/predict \
@@ -82,7 +82,7 @@ Fitted parameter files include metadata tracking which method was used:
 
 ```json
 {
-  "4param": {
+  "element": {
     "C": -2399.123,
     "H": -313.456,
     ...
@@ -114,7 +114,7 @@ Either:
 
 ```bash
 # Benchmark gxtb performance
-python benchmark.py --use-gxtb
+python benchmark.py --methods gxtb
 ```
 
 This will create separate cache directories:
@@ -126,7 +126,7 @@ This will create separate cache directories:
 
 | Aspect | xTB | gxtb |
 |--------|-----|------|
-| Speed | Fast (~15s for 314 molecules) | Slow (~10x slower) |
+| Speed | Fast (~15s for 531 molecules) | Slow (~10x slower) |
 | Accuracy | Good (R²~0.99 with n=5) | Potentially better |
 | Theory Level | Semi-empirical (GFN2-xTB) | DFT (wB97M-V/def2-TZVPPD) |
 | Recommended | ✓ Yes | Only if needed |

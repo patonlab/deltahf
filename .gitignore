@@ -58,3 +58,11 @@ nohup.out
 .env
 deltahf/data/small_training_data.csv
 deltahf/data/small_molecule_data.csv
+
+# plots/ — large source data, generated intermediates and caches
+plots/250k_rndm_zinc_drugs_clean_3.csv
+plots/*_predictions.csv
+plots/*_input.csv
+plots/zinc_sample_*.csv
+plots/nohup.out
+plots/.cache_*/

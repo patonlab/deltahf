@@ -10,10 +10,10 @@
 The core equation is:
 
 ```
-ΔHf° = u_xtb − Σ(nl × εl)
+ΔHf° = u_optimizer − Σ(nl × εl)
 ```
 
-where `u_xtb` is the xTB total energy (in kcal/mol), `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy.
+where `u_optimizer` is the total energy from the chosen geometry optimizer (xTB, gxtb, or MLIP) in kcal/mol, `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy.
 
 **Optional gxtb energies:** The `--use-gxtb` flag enables gxtb (trained against wB97M-V/def2-TZVPPD) single-point energies. **CRITICAL:** gxtb and xTB energies are on completely different scales and **must never be mixed**. If you fit with `--use-gxtb`, you **must** also predict with `--use-gxtb`. See [GXTB_USAGE.md](GXTB_USAGE.md) for details.
 
@@ -94,6 +94,9 @@ python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 1 -o
 | `--n-conformers` | Number of lowest-energy RDKit conformers to optimize with xTB. | `1` |
 | `--output, -o` | Output JSON file for fitted epsilon values. | — |
 | `--csv` | Output CSV with training data and per-molecule predictions. | — |
+| `--outliers [N]` | Print the top N outliers by \|error\| after fitting each model (default N=10 if flag is given without argument). | — |
+| `--optimizer` | Geometry optimizer: `xtb`, `uma`, `esen`, or `aimnet2`. Non-xTB optimizers require optional dependencies. | `xtb` |
+| `--xtb-threads N` | Number of OpenMP threads for xTB (4–16 is optimal; beyond 16 overhead dominates). | all CPUs |
 | `--use-xtb-wbos` | Use xTB Wiberg bond orders (instead of RDKit) for `element_bo` classification. | — |
 | `--use-gxtb` | Use gxtb energies (wB97M-V/def2-TZVPPD). **WARNING:** Must use consistently for fit AND predict! See [GXTB_USAGE.md](GXTB_USAGE.md). | — |
 | `--cache-dir` | Directory for caching results (automatically suffixed with `_xtb` or `_gxtb`). | — |
@@ -114,19 +117,21 @@ python -m deltahf predict -i molecules.csv --epsilon params.json --model element
 | `--model` | Which model to use: `element`, `element_bo`, `hybrid`, `bondorder`, `bondorder_ext`, `bondorder_ar`, `extended`, or `neighbour`. | `element` |
 | `--n-conformers` | Number of conformers to optimize with xTB. | `1` |
 | `--output, -o` | Output CSV with predicted ΔHf° values. | — |
+| `--optimizer` | Geometry optimizer: `xtb`, `uma`, `esen`, or `aimnet2`. | `xtb` |
+| `--xtb-threads N` | Number of OpenMP threads for xTB. | all CPUs |
 | `--use-gxtb` | Use gxtb energies. **Must match the method used in fit!** Automatically validated against parameter file metadata. | — |
 | `--cache-dir` | Directory for caching results (automatically suffixed with `_xtb` or `_gxtb`). | — |
 | `--verbose, -v` | Print per-molecule details instead of a progress bar. | — |
 
 ## Training Data
 
-`deltahf/data/training_data.csv` contains **533 molecules** with experimental ΔHf° values covering elements C, H, N, O, F, S, Cl:
+`deltahf/data/training_data.csv` contains **531 molecules** with experimental ΔHf° values covering elements C, H, N, O, F, S, Cl:
 
 | Source | Count | Description |
 |--------|-------|-------------|
 | Cawkwell et al. (2021)<sup>1</sup> | 102 | Energetic CHNO molecules + small reference compounds |
 | Yalamanchi et al. (2020)<sup>2</sup> | 211 | Cyclic hydrocarbons (CH only) |
-| ATcT v1.220<sup>3</sup> | 220 | Gas-phase ΔHf° at 298.15 K; neutral closed-shell molecules with elements C, H, N, O, F, S, Cl |
+| ATcT v1.220<sup>3</sup> | 218 | Gas-phase ΔHf° at 298.15 K; neutral closed-shell molecules with elements C, H, N, O, F, S, Cl |
 
 Each molecule is assigned a `category` label:
 
@@ -135,14 +140,14 @@ Each molecule is assigned a `category` label:
 | `cyclic_HC` | 189 | Cyclic hydrocarbons (cyclopentanes through naphthalenes) |
 | `small_CHNO` | 136 | Small reference molecules (methane, water, ethanol, etc.) |
 | `energetic` | 45 | Explosives, nitro/azide/nitroso compounds |
-| `hydrocarbon` | 42 | Acyclic hydrocarbons |
-| `chlorinated` | 43 | Molecules containing Cl |
+| `hydrocarbon` | 41 | Acyclic hydrocarbons |
+| `chlorinated` | 42 | Molecules containing Cl |
 | `fluorinated` | 39 | Molecules containing F |
 | `sulfur` | 17 | Molecules containing S |
 | `strained_3ring` | 12 | Cyclopropane derivatives and quadricyclane |
 | `large_HC` | 10 | Large PAHs (pyrene, tetracene, etc.) |
 
-Category labels (`cyclic_HC`, `small_CHNO`, `energetic`, `hydrocarbon`, `chlorinated`, `fluorinated`, `sulfur`, `strained_3ring`, `large_HC`) are mutually exclusive in `training_data.csv` and sum to the total 533 molecules. Parameter-file metadata (`_metadata.n_molecules`) records successful molecules used during fitting and may therefore be lower than 533 for a given method.
+Category labels (`cyclic_HC`, `small_CHNO`, `energetic`, `hydrocarbon`, `chlorinated`, `fluorinated`, `sulfur`, `strained_3ring`, `large_HC`) are mutually exclusive in `training_data.csv` and sum to the total 531 molecules. Parameter-file metadata (`_metadata.n_molecules`) records the count of molecules successfully processed during fitting, which may be slightly lower than 531 if any molecules fail the pipeline.
 
 The ATcT data was extracted via `atct/extract_atct.py`; see `atct/USING_ATCT_DATA.md` for the extraction workflow and pipeline statistics.
 
@@ -172,7 +177,7 @@ python -m deltahf fit \
     -o params.json
 ```
 
-This processes all 533 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
+This processes all 531 molecules through the pipeline (SMILES -> RDKit conformers -> xTB optimization), fits atom equivalents by least squares for each model, and reports adjusted R², RMSD, MAD, max deviation, and 10-fold CV RMSD. Standard errors on each epsilon are computed from the CV folds.
 
 ### Example 3: Predict ΔHf° for New Molecules
 
@@ -217,7 +222,7 @@ Results are cached per method × n_conformers in `.benchmark_cache/`, so re-runs
 
 ### Key Findings
 
-A benchmark across all eight models and three methods (n_conformers = 1, 529 molecules) reveals four main findings:
+A benchmark across all eight models and three methods (n_conformers = 1, 531 molecules) reveals four main findings:
 
 1. **Bond-order classification outperforms hybridization** — Using maximum bond order (1/2/3) from the Kekulized structure instead of RDKit hybridization labels improves accuracy at both the coarse level (`bondorder` vs `hybrid`) and the fine-grained level (`bondorder_ext` vs `extended`). The best model overall is `bondorder_ext`, combining bond-order labels with per-carbon H-counts.
 
@@ -233,7 +238,7 @@ A benchmark across all eight models and three methods (n_conformers = 1, 529 mol
 
 ### Results: Effect of Model Parameterisation
 
-Full training set (529 molecules, C,H,N,O,F,S,Cl), n_conformers = 1:
+Full training set (531 molecules, C,H,N,O,F,S,Cl), n_conformers = 1:
 
 | Model | Params | xTB RMSD | xTB MAD | gXTB RMSD | gXTB MAD | UMA RMSD | UMA MAD |
 |-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|

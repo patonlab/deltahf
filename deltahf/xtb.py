@@ -6,6 +6,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+_ENERGY_RE = re.compile(r"total energy\s+([-\d.]+)\s+Eh", re.IGNORECASE)
+
 
 @dataclass
 class XtbResult:
@@ -55,10 +57,10 @@ def parse_total_energy(output: str) -> float:
 
     Looks for the last occurrence of 'total energy' in the SUMMARY block.
     """
-    pattern = r"total energy\s+([-\d.]+)\s+Eh"
-    matches = re.findall(pattern, output, re.IGNORECASE)
+    matches = _ENERGY_RE.findall(output)
     if not matches:
-        raise RuntimeError("Could not parse total energy from xTB output")
+        excerpt = output[-500:] if len(output) > 500 else output
+        raise RuntimeError(f"Could not parse xTB total energy. Output tail:\n{excerpt}")
     return float(matches[-1])
 
 

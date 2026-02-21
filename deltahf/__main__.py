@@ -253,6 +253,75 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _load_optimizer(optimizer: str):
+    """Check optimizer availability and load model. Returns predictor or None. Exits on failure."""
+    if optimizer == "xtb":
+        from deltahf.xtb import find_xtb_binary
+        try:
+            find_xtb_binary()
+        except FileNotFoundError as e:
+            print(f"   Error: {e}")
+            sys.exit(1)
+        return None
+    from deltahf.uma import load_mlip_model
+    print(f"   Loading {optimizer} model...")
+    try:
+        predictor = load_mlip_model(optimizer)
+    except (ImportError, FileNotFoundError) as e:
+        print(f"   Error: {e}")
+        sys.exit(1)
+    print(f"   Using {optimizer} geometry optimizer")
+    return predictor
+
+
+def _verify_gxtb(use_gxtb: bool) -> None:
+    """Check gxtb binary availability if use_gxtb is True. Exits on failure."""
+    if not use_gxtb:
+        return
+    from deltahf.xtb import find_gxtb_binary
+    if find_gxtb_binary() is None:
+        print("   Error: gxtb binary not found on PATH.")
+        print("   gxtb must be installed manually from source (not available via conda/pip).")
+        sys.exit(1)
+    print("   Using gxtb energies (wB97M-V/def2-TZVPPD approximation)")
+    print("   WARNING: gxtb and xTB energies are on different scales - do not mix workflows!")
+    print()
+
+
+def _resolve_xtb_threads(optimizer: str, xtb_threads_arg: int | None) -> int | None:
+    """Resolve xTB thread count and print it. Returns None if optimizer is not xTB."""
+    if optimizer != "xtb":
+        return None
+    threads = xtb_threads_arg if xtb_threads_arg is not None else os.cpu_count()
+    print(f"   xTB threads: {threads}")
+    return threads
+
+
+def _setup_cache(
+    cache_dir: str | None,
+    optimizer: str,
+    use_gxtb: bool,
+    use_xtb_wbos: bool,
+):
+    """Build cache path with method suffix and return a ResultCache. Returns None if no cache dir."""
+    if not cache_dir:
+        return None
+    from deltahf.cache import ResultCache
+    cache_path = Path(cache_dir)
+    method_parts = [optimizer]
+    if use_gxtb:
+        method_parts.append("gxtb")
+    method_suffix = "_" + "_".join(method_parts)
+    if not cache_path.name.endswith(method_suffix):
+        cache_path = cache_path.parent / (cache_path.name + method_suffix)
+    cache = ResultCache(cache_path)
+    print(f"   Using cache directory: {cache_path}")
+    if use_xtb_wbos:
+        print("      Note: caching disabled when --use-xtb-wbos is set")
+        return None
+    return cache
+
+
 def cmd_fit(args):
     """Run the fitting workflow."""
     import pandas as pd
@@ -261,38 +330,9 @@ def cmd_fit(args):
         print(f"   Error: --use-xtb-wbos requires --optimizer xtb (got '{args.optimizer}')")
         sys.exit(1)
 
-    predictor = None
-    if args.optimizer == "xtb":
-        from deltahf.xtb import find_xtb_binary
-        try:
-            find_xtb_binary()
-        except FileNotFoundError as e:
-            print(f"   Error: {e}")
-            sys.exit(1)
-    else:
-        from deltahf.uma import load_mlip_model
-        print(f"   Loading {args.optimizer} model...")
-        try:
-            predictor = load_mlip_model(args.optimizer)
-        except (ImportError, FileNotFoundError) as e:
-            print(f"   Error: {e}")
-            sys.exit(1)
-        print(f"   Using {args.optimizer} geometry optimizer")
-
-    if args.use_gxtb:
-        from deltahf.xtb import find_gxtb_binary
-        if find_gxtb_binary() is None:
-            print("   Error: gxtb binary not found on PATH.")
-            print("   gxtb must be installed manually from source (not available via conda/pip).")
-            sys.exit(1)
-        print("   Using gxtb energies (wB97M-V/def2-TZVPPD approximation)")
-        print("   WARNING: gxtb and xTB energies are on different scales - do not mix workflows!")
-        print()
-
-    xtb_threads = None
-    if args.optimizer == "xtb":
-        xtb_threads = args.xtb_threads if args.xtb_threads is not None else os.cpu_count()
-        print(f"   xTB threads: {xtb_threads}")
+    predictor = _load_optimizer(args.optimizer)
+    _verify_gxtb(args.use_gxtb)
+    xtb_threads = _resolve_xtb_threads(args.optimizer, args.xtb_threads)
 
     print(CITATIONS)
     print()
@@ -302,24 +342,7 @@ def cmd_fit(args):
     if args.use_xtb_wbos:
         print("   Using xTB Wiberg bond orders for element_bo atom classification")
 
-    cache = None
-    if args.cache_dir:
-        from deltahf.cache import ResultCache
-
-        # Append method suffix to keep caches isolated per optimizer/energy method
-        cache_path = Path(args.cache_dir)
-        method_parts = [args.optimizer]
-        if args.use_gxtb:
-            method_parts.append("gxtb")
-        method_suffix = "_" + "_".join(method_parts)
-        if not cache_path.name.endswith(method_suffix):
-            cache_path = cache_path.parent / (cache_path.name + method_suffix)
-
-        cache = ResultCache(cache_path)
-        print(f"   Using cache directory: {cache_path}")
-        if args.use_xtb_wbos:
-            print("      Note: caching disabled when --use-xtb-wbos is set")
-            cache = None
+    cache = _setup_cache(args.cache_dir, args.optimizer, args.use_gxtb, args.use_xtb_wbos)
 
     # Process all molecules
     print(f"   Running {args.optimizer} optimizations...")
@@ -492,29 +515,8 @@ def cmd_predict(args):
         print(f"   Error: --use-xtb-wbos requires --optimizer xtb (got '{args.optimizer}')")
         sys.exit(1)
 
-    predictor = None
-    if args.optimizer == "xtb":
-        from deltahf.xtb import find_xtb_binary
-        try:
-            find_xtb_binary()
-        except FileNotFoundError as e:
-            print(f"   Error: {e}")
-            sys.exit(1)
-    else:
-        from deltahf.uma import load_mlip_model
-        print(f"   Loading {args.optimizer} model...")
-        try:
-            predictor = load_mlip_model(args.optimizer)
-        except (ImportError, FileNotFoundError) as e:
-            print(f"   Error: {e}")
-            sys.exit(1)
-
-    if args.use_gxtb:
-        from deltahf.xtb import find_gxtb_binary
-        if find_gxtb_binary() is None:
-            print("   Error: gxtb binary not found on PATH.")
-            print("   gxtb must be installed manually from source (not available via conda/pip).")
-            sys.exit(1)
+    predictor = _load_optimizer(args.optimizer)
+    _verify_gxtb(args.use_gxtb)
 
     # Determine which epsilon file to use
     if args.epsilon:
@@ -564,29 +566,8 @@ def cmd_predict(args):
     if using_defaults:
         _print_default_model_info(epsilon_data, args.model, epsilon, method=param_method)
 
-    xtb_threads = None
-    if args.optimizer == "xtb":
-        xtb_threads = args.xtb_threads if args.xtb_threads is not None else os.cpu_count()
-        print(f"   xTB threads: {xtb_threads}")
-
-    cache = None
-    if args.cache_dir:
-        from deltahf.cache import ResultCache
-
-        # Append method suffix to keep caches isolated per optimizer/energy method
-        cache_path = Path(args.cache_dir)
-        method_parts = [args.optimizer]
-        if args.use_gxtb:
-            method_parts.append("gxtb")
-        method_suffix = "_" + "_".join(method_parts)
-        if not cache_path.name.endswith(method_suffix):
-            cache_path = cache_path.parent / (cache_path.name + method_suffix)
-
-        cache = ResultCache(cache_path)
-        print(f"   Using cache directory: {cache_path}")
-        if args.use_xtb_wbos:
-            print("      Note: caching disabled when --use-xtb-wbos is set")
-            cache = None
+    xtb_threads = _resolve_xtb_threads(args.optimizer, args.xtb_threads)
+    cache = _setup_cache(args.cache_dir, args.optimizer, args.use_gxtb, args.use_xtb_wbos)
 
     epsilon_kwargs = {f"epsilon_{args.model}": epsilon}
     results_df = process_csv(

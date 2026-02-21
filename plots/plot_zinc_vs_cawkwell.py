@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 
-SUPPORTED_ELEMENTS = {"C", "H", "N", "O", "F", "S", "Cl"}
+from deltahf.smiles import SUPPORTED_ELEMENTS, heavy_atom_count, total_atom_count
 
 PLOTS_DIR = Path(__file__).parent
 REPO_ROOT = PLOTS_DIR.parent
@@ -84,14 +84,6 @@ def plot(cawkwell_out: Path, zinc_out: Path, method: str = "gXTB"):
         print(f"Cawkwell: {n_cawk_fail} failed molecules excluded from plot")
     if n_zinc_fail:
         print(f"ZINC: {n_zinc_fail} failed molecules excluded from plot")
-
-    def heavy_atom_count(smiles):
-        mol = Chem.MolFromSmiles(smiles)
-        return mol.GetNumHeavyAtoms() if mol is not None else None
-
-    def total_atom_count(smiles):
-        mol = Chem.MolFromSmiles(smiles)
-        return Chem.AddHs(mol).GetNumAtoms() if mol is not None else None
 
     for df in (cawk, zinc):
         df["n_heavy"] = df["smiles"].apply(heavy_atom_count)

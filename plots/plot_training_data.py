@@ -1,19 +1,16 @@
 """Histogram of training data ΔHf° values, coloured by energetic vs non-energetic."""
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from rdkit import Chem
 
-df = pd.read_csv("deltahf/data/training_data.csv")
+from deltahf.smiles import heavy_atom_count, total_atom_count
 
-def heavy_atom_count(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    return mol.GetNumHeavyAtoms() if mol is not None else None
+REPO_ROOT = Path(__file__).parent.parent
 
-def total_atom_count(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    return Chem.AddHs(mol).GetNumAtoms() if mol is not None else None
+df = pd.read_csv(REPO_ROOT / "deltahf/data/training_data.csv")
 
 df["n_heavy"] = df["smiles"].apply(heavy_atom_count)
 df["n_atoms"] = df["smiles"].apply(total_atom_count)
@@ -49,5 +46,6 @@ axes[0].legend(framealpha=0.9, fontsize=10)
 
 fig.suptitle("Training data: heat of formation distributions", fontsize=13, y=1.02)
 plt.tight_layout()
-plt.savefig("plots/training_data_histogram.png", dpi=150, bbox_inches="tight")
-print("Saved plots/training_data_histogram.png")
+output = Path(__file__).parent / "training_data_histogram.png"
+plt.savefig(output, dpi=150, bbox_inches="tight")
+print(f"Saved {output}")
