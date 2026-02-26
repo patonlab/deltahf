@@ -187,7 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
     fit_parser.add_argument("--csv", help="Output CSV with training data and predictions")
     fit_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
-        help="Use xTB Wiberg bond orders (instead of RDKit) for element_bo atom classification (requires --optimizer xtb)",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for element_bo "
+        "atom classification (requires --optimizer xtb)",
     )
     fit_parser.add_argument(
         "--use-gxtb", action="store_true",
@@ -231,7 +232,8 @@ def build_parser() -> argparse.ArgumentParser:
     pred_parser.add_argument("--output", "-o", help="Output CSV with results")
     pred_parser.add_argument(
         "--use-xtb-wbos", action="store_true",
-        help="Use xTB Wiberg bond orders (instead of RDKit) for element_bo atom classification (requires --optimizer xtb)",
+        help="Use xTB Wiberg bond orders (instead of RDKit) for element_bo "
+        "atom classification (requires --optimizer xtb)",
     )
     pred_parser.add_argument(
         "--use-gxtb", action="store_true",
