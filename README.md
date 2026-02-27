@@ -190,6 +190,8 @@ python -m deltahf predict \
     -o predictions.csv
 ```
 
+See the [examples/](examples/) directory for additional scripts covering batch prediction, model comparison, and atom classification.
+
 ## Benchmarking
 
 ### Running Benchmarks
@@ -210,7 +212,7 @@ python benchmark.py --methods uma --append
 python benchmark.py --methods rf --append  # requires: pip install molpipeline
 ```
 
-Results are cached per method × n_conformers in `.benchmark_cache/`, so re-runs skip expensive optimizations. See `benchmark_results.csv` for the full output.
+Results are cached per method × n_conformers in `.benchmark_cache/`, so re-runs skip expensive optimizations. See [`model_benchmarks/`](model_benchmarks/) for detailed results and the full CSV output.
 
 ### Key Findings
 
@@ -218,13 +220,13 @@ A benchmark across all eight models and three methods (n_conformers = 1, 531 mol
 
 1. **Bond-order classification outperforms hybridization** — Using maximum bond order (1/2/3) from the Kekulized structure instead of RDKit hybridization labels improves accuracy at both the coarse level (`bondorder` vs `hybrid`) and the fine-grained level (`bondorder_ext` vs `extended`). The best model overall is `bondorder_ext`, combining bond-order labels with per-carbon H-counts.
 
-2. **Model chemistry matters far more than parameterisation** — Upgrading from xTB to gXTB (wB97M-V/def2-TZVPPD single-points on xTB geometries) reduces RMSD by ~42% (6.58 → 3.82 kcal/mol for `bondorder_ext`). Upgrading to UMA (MLIP, GPU) reduces it by a further ~10% (3.82 → 3.45 kcal/mol).
+2. **Model chemistry matters far more than parameterisation** — Upgrading from xTB to gXTB (wB97M-V/def2-TZVPPD single-points on xTB geometries) reduces RMSD by ~42% (6.53 → 3.82 kcal/mol for `bondorder_ext`). Upgrading to UMA (MLIP, GPU) reduces it by a further ~32% (3.82 → 2.59 kcal/mol).
 
-3. **Number of conformers has minimal impact** — On the original CHNO dataset, increasing from n=1 to n=5 gave negligible accuracy gains (<1% RMSD change) at a cost of 3–4× more computation. Use `--n-conformers 1` (the default).
+3. **Number of conformers has minimal impact for xTB and gXTB** — Increasing from n=1 to n=5 gives negligible accuracy change at 3–4× the cost. For UMA, n=5 actually *degrades* accuracy (RMSD 2.59 → 3.11 for `bondorder_ext`), likely because UMA's more flexible potential finds lower-energy geometries that have isomerized. Use `--n-conformers 1` (the default).
 
 4. **xTB + bondorder_ext matches or exceeds the published DFT-B baseline** — On the 102-molecule Cawkwell2021 subset, xTB + `bondorder_ext` (RMSD = 6.91 kcal/mol) approaches the DFT-B + `element_bo` result (RMSD = 6.08 kcal/mol) from Cawkwell et al.<sup>1</sup>, while gXTB and UMA substantially surpass it.
 
-5. **The physics prior from xTB is essential** — On the original 313-molecule CHNO training set, a pure cheminformatics baseline (Morgan fingerprint + Random Forest) achieved an in-sample RMSD of 8.89 kcal/mol but a cross-validated RMSD of 22.9 kcal/mol — dramatically worse than even the simplest xTB model (`element`, CV RMSD = 11.4 kcal/mol). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly.
+5. **The physics prior from xTB is essential** — A pure cheminformatics baseline (Morgan fingerprint + Random Forest) achieved an in-sample RMSD of 11.70 kcal/mol but a cross-validated RMSD of 30.9 kcal/mol — dramatically worse than even the simplest xTB model (`element`, CV RMSD = 11.9 kcal/mol). The atom equivalent approach sidesteps this by encoding the quantum mechanical energy decomposition directly.
 
 > **Note on the `neighbour` model:** The `neighbour` model shows competitive training-set RMSD but produces an extremely large cross-validation RMSD in some CV folds (near-singular design matrix). It is not recommended for practical use.
 
@@ -234,15 +236,15 @@ Full training set (531 molecules, C,H,N,O,F,S,Cl), n_conformers = 1:
 
 | Model | Params | xTB RMSD | xTB MAD | gXTB RMSD | gXTB MAD | UMA RMSD | UMA MAD |
 |-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `element` | 7 | 11.53 | 8.16 | 4.36 | 3.17 | 4.11 | 2.44 |
-| `element_bo` | 11 | 9.12 | 5.78 | 4.06 | 2.80 | 3.88 | 2.10 |
-| `hybrid` | 13 | 8.93 | 5.51 | 4.10 | 2.87 | 3.59 | 1.87 |
-| `bondorder` | 13 | 7.66 | 5.02 | 3.95 | 2.75 | 3.58 | 1.85 |
-| `bondorder_ar` | 16 | 7.63 | 4.98 | 3.93 | 2.74 | 3.55 | 1.82 |
-| `extended` | 18 | 8.45 | 5.38 | 3.98 | 2.76 | 3.51 | 1.83 |
-| **`bondorder_ext`** | **19** | **6.58** | **4.29** | **3.82** | **2.67** | **3.45** | **1.84** |
+| `element` | 7 | 11.54 | 8.16 | 4.37 | 3.18 | 3.27 | 2.32 |
+| `element_bo` | 11 | 9.12 | 5.78 | 4.07 | 2.81 | 2.99 | 1.98 |
+| `hybrid` | 13 | 8.92 | 5.50 | 4.11 | 2.88 | 2.78 | 1.74 |
+| `bondorder` | 13 | 7.63 | 5.00 | 3.95 | 2.75 | 2.73 | 1.71 |
+| `bondorder_ar` | 16 | 7.60 | 4.96 | 3.94 | 2.74 | 2.71 | 1.67 |
+| `extended` | 18 | 8.44 | 5.37 | 3.98 | 2.76 | 2.69 | 1.69 |
+| **`bondorder_ext`** | **19** | **6.53** | **4.26** | **3.82** | **2.67** | **2.59** | **1.66** |
 
-All values in kcal/mol. Params = active parameters after dropping zero-count types. Adj. R² and CV RMSD available in `benchmark_results.csv`.
+All values in kcal/mol. Params = active parameters after dropping zero-count types. Adj. R² and CV RMSD available in [`model_benchmarks/benchmark_results.csv`](model_benchmarks/benchmark_results.csv).
 
 ### Results: Comparison with DFT-B Literature Baseline
 
@@ -253,22 +255,24 @@ Cawkwell2021 subset (102 molecules), n_conformers = 1. The DFT-B baseline<sup>1<
 | DFT-B (lit.)<sup>1</sup> | `element` | 4 | 7.59 | 25.48 |
 | DFT-B (lit.)<sup>1</sup> | `element_bo` | 7 | 6.08 | 15.01 |
 | xTB | `bondorder_ext` | 15 | 6.91 | 23.66 |
-| gXTB | `bondorder_ext` | 15 | 3.74 | 10.52 |
+| gXTB | `bondorder_ext` | 15 | 3.75 | 10.52 |
 | **UMA** | **`bondorder_ext`** | **15** | **2.70** | **8.95** |
 
 ### Results: Effect of n_conformers
 
-`bondorder_ext` model, original CHNO training set (310 molecules). gXTB timing is from fresh runs (uncached).
+`bondorder_ext` model, full training set (526 molecules). Timings are from fresh runs (uncached).
 
-| n_conformers | xTB RMSD | gXTB RMSD | UMA RMSD | gXTB wall time |
-|:---:|:---:|:---:|:---:|:---:|
-| 1 | 4.59 | 3.15 | 2.48 | 78 s |
-| 3 | 4.61 | 3.15 | 2.48 | 163 s |
-| 5 | 4.65 | 3.15 | 2.43 | 245 s |
+| n_conformers | xTB RMSD | gXTB RMSD | UMA RMSD | xTB time | gXTB time | UMA time |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | 6.53 | 3.82 | 2.59 | 54 s | 69 s | 285 s |
+| 3 | 6.51 | 3.81 | 2.58 | 104 s | 119 s | 707 s |
+| 5 | 6.52 | 3.83 | 3.11\* | 151 s | 166 s | 1095 s |
+
+\*UMA n=5 degrades due to isomerization of some conformers during UMA geometry optimization (max deviation jumps from 20 to 41 kcal/mol).
 
 ### Recommendations
 
-- **Use `--n-conformers 1`** (the default) — additional conformers give <1% RMSD improvement at 3–4× cost
+- **Use `--n-conformers 1`** (the default) — additional conformers give negligible improvement for xTB/gXTB and can degrade UMA results
 - **Use `--model bondorder_ext`** for best accuracy
 - **Use `--optimizer uma`** for best accuracy if a GPU is available
 - **Use `--use-gxtb`** for substantially improved accuracy over xTB on CPU alone
@@ -295,7 +299,7 @@ For each molecule, deltahf performs the following steps:
 - [tqdm](https://tqdm.github.io/) — progress bars
 
 **Optional:**
-- [gxtb](https://github.com/grimme-lab/gxtb) — Higher-level DFT energies (wB97M-V/def2-TZVPPD). **Must be installed manually from source** (not available via pip/conda). **WARNING:** gxtb and xTB energies are on completely different scales and cannot be mixed - see [GXTB_USAGE.md](GXTB_USAGE.md) for proper usage.
+- [gxtb](https://github.com/grimme-lab/gxtb) — **Must be installed manually from source** (not available via pip/conda). **WARNING:** gxtb and xTB energies are on completely different scales and cannot be mixed - see [GXTB_USAGE.md](GXTB_USAGE.md) for proper usage.
 
 ## Testing
 

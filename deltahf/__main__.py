@@ -288,7 +288,6 @@ def _verify_gxtb(use_gxtb: bool) -> None:
         print("   gxtb must be installed manually from source (not available via conda/pip).")
         sys.exit(1)
     print("   Using gxtb energies (wB97M-V/def2-TZVPPD approximation)")
-    print("   WARNING: gxtb and xTB energies are on different scales - do not mix workflows!")
     print()
 
 

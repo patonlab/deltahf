@@ -1,33 +1,36 @@
+python benchmark.py --methods rf --append
 Loaded 531 molecules (102 Cawkwell2021, 211 Yalamanchi2020)
 
 ============================================================
-  Method: xTB
+  Method: RF (Morgan fingerprint + Random Forest)
 ============================================================
   ────────────────────────────────────────────────────────
-  xTB  |  n_conformers = 1
+  RF  |  all (531 molecules)
   ────────────────────────────────────────────────────────
-    xTB n=1: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 531/531 [01:03<00:00,  8.40it/s]
-    526/531 succeeded (102 Cawkwell) in 63.2s
+    Fit in 0.3s — running 10-fold CV...
+    in-sample RMSD=11.70  CV RMSD=30.92 kcal/mol
 
   ────────────────────────────────────────────────────────
-  xTB  |  n_conformers = 3
+  RF  |  cawkwell (102 molecules)
   ────────────────────────────────────────────────────────
-    xTB n=3: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 531/531 [02:15<00:00,  3.93it/s]
-    526/531 succeeded (102 Cawkwell) in 135.1s
+    Fit in 0.1s — running 10-fold CV...
+    in-sample RMSD=11.56  CV RMSD=31.13 kcal/mol
 
-  ────────────────────────────────────────────────────────
-  xTB  |  n_conformers = 5
-  ────────────────────────────────────────────────────────
-    xTB n=5: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 531/531 [03:36<00:00,  2.45it/s]
-    526/531 succeeded (102 Cawkwell) in 216.9s
-
-Results saved to benchmark_results.csv  (50 rows)
+Results saved to benchmark_results.csv  (100 rows)
 
 ====================================================================================================
   SUMMARY  (n_conformers=1)
 ====================================================================================================
 method      model           subset        adj_r2      rmsd       mad   max_dev   cv_rmsd
   ------------------------------------------------------------------------------------------------
+gXTB        neighbour       all           0.9949      3.75      2.62     24.48      4.27
+gXTB        bondorder_ext   all           0.9948      3.82      2.67     19.99      4.11
+gXTB        bondorder_ar    all           0.9945      3.94      2.74     21.45      4.17
+gXTB        bondorder       all           0.9945      3.95      2.75     21.41      4.17
+gXTB        extended        all           0.9943      3.98      2.76     20.37      4.23
+gXTB        element_bo      all           0.9941      4.07      2.81     21.25      4.19
+gXTB        hybrid          all           0.9940      4.11      2.88     20.31      4.31
+gXTB        element         all           0.9933      4.37      3.18     22.56      4.47
 xTB         bondorder_ext   all           0.9847      6.53      4.26     39.40      7.09
 xTB         bondorder_ar    all           0.9794      7.60      4.96     39.96      8.20
 xTB         bondorder       all           0.9793      7.63      5.00     39.88      8.18
@@ -36,6 +39,14 @@ xTB         extended        all           0.9744      8.44      5.37     52.66  
 xTB         hybrid          all           0.9717      8.92      5.50     52.96      9.59
 xTB         element_bo      all           0.9706      9.12      5.78     68.70      9.59
 xTB         element         all           0.9533     11.54      8.16     71.76     11.87
+gXTB        neighbour       cawkwell      0.9915      3.56      2.56     15.54  18665.30
+gXTB        bondorder_ext   cawkwell      0.9913      3.75      2.86     10.52      4.75
+gXTB        bondorder_ar    cawkwell      0.9912      3.85      2.99     10.73      4.68
+gXTB        bondorder       cawkwell      0.9912      3.90      3.01     10.95      4.66
+gXTB        element_bo      cawkwell      0.9896      4.30      3.32     11.84      4.83
+gXTB        extended        cawkwell      0.9872      4.59      3.41     13.97      5.35
+gXTB        hybrid          cawkwell      0.9871      4.73      3.59     15.13      5.27
+gXTB        element         cawkwell      0.9846      5.31      4.18     14.54      5.57
 xTB         bondorder_ext   cawkwell      0.9706      6.91      5.07     23.66      8.98
 xTB         neighbour       cawkwell      0.9625      7.48      4.39     49.36    994.24
 xTB         bondorder_ar    cawkwell      0.9544      8.75      6.71     26.62     10.62
@@ -44,6 +55,14 @@ xTB         extended        cawkwell      0.9146     11.84      8.07     42.42  
 xTB         hybrid          cawkwell      0.9139     12.23      8.64     48.26     13.56
 xTB         element_bo      cawkwell      0.8952     13.64      9.45     68.97     15.07
 xTB         element         cawkwell      0.8428     16.97     12.05     77.07     17.74
+
+====================================================================================================
+  RF BASELINE
+====================================================================================================
+method      model           subset        adj_r2      rmsd       mad   max_dev   cv_rmsd
+  ------------------------------------------------------------------------------------------------
+RF          morgan_rf       all           0.9527     11.70      7.41     71.71     30.92
+RF          morgan_rf       cawkwell      0.9299     11.56      8.35     41.50     31.13
 
   Literature baseline (DFT-B, Cawkwell2021 subset):
     element     rmsd=7.59  max_dev=25.48
