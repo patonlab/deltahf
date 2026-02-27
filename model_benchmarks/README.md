@@ -1,6 +1,6 @@
 # Model Benchmarks
 
-This directory contains the benchmark script, results CSV, and text outputs from evaluating `deltahf` across all eight atom equivalent models, three model chemistries (xTB, gXTB, UMA), and three conformer counts (1, 3, 5).
+This directory contains the benchmark script and results CSV from evaluating `deltahf` across all eight atom equivalent models, three model chemistries (xTB, gXTB, UMA), and three conformer counts (1, 3, 5).
 
 ---
 
@@ -195,9 +195,3 @@ For production use, **`bondorder_ext` + UMA** (GPU) gives the best accuracy (RMS
 |------|-------------|
 | `benchmark.py` | Benchmark script |
 | `benchmark_results.csv` | Full results (149 rows: 8 models × 3 methods × 3 n_conformers × 2 subsets + DFT-B + RF) |
-| `xtb_run` | Text output from xTB benchmark run |
-| `gxtb_run` | Text output from gXTB benchmark run |
-| `uma_run` | Text output from UMA benchmark run |
-| `rf_run` | Text output from RF baseline run |
-| `.benchmark_cache/` | Cached pipeline results (enables fast re-runs) |
-| `old/` | Previous benchmark results (prior to training data expansion) |

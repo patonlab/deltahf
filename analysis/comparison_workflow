@@ -3,13 +3,13 @@ conda activate deltahf
 python -m deltahf predict \
   -i cawkwell_input.csv \
   --model bondorder_ext \
-  --cache-dir plots/.cache_zinc_cawkwell/cawkwell \
+  --cache-dir analysis/.cache_zinc_cawkwell/cawkwell \
   -o cawkwell_xtb_predictions.csv
 
 python -m deltahf predict \
   -i zinc_sample_1000.csv \
   --model bondorder_ext \
-  --cache-dir plots/.cache_zinc_cawkwell/zinc \
+  --cache-dir analysis/.cache_zinc_cawkwell/zinc \
   -o zinc_xtb_predictions.csv
 
 python plot_zinc_vs_cawkwell.py --plot-only
