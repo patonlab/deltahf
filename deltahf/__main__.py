@@ -445,6 +445,21 @@ def cmd_fit(args):
         "n_molecules": len(indices),
     }
 
+    # Add training provenance
+    training_meta: dict = {"n_molecules": len(indices)}
+    if "source" in df.columns:
+        source_counts = df.iloc[indices]["source"].value_counts()
+        training_meta["datasets"] = [
+            f"{src} ({count} mol)" for src, count in source_counts.items()
+        ]
+    output["_training"] = training_meta
+
+    # Add per-model training-set RMSDs (rounded to 2 dp)
+    output["_benchmark"] = {
+        model_name: round(rmsd(predicted[model_name], exp_dhf), 2)
+        for model_name in models_to_run
+    }
+
     print()
     print(SEP)
 
