@@ -62,7 +62,7 @@ python -m deltahf fit \
 
 Approximate run time: ~2 min 15 s (3.9 molecules/s). gxtb runs a wB97M-V/def2-TZVPPD single-point on the xTB geometry, making it ~2.4× slower than xTB alone.
 
-### UMA (to be added)
+### UMA
 
 ```bash
 python -m deltahf fit \
@@ -73,6 +73,8 @@ python -m deltahf fit \
     --optimizer uma \
     -o params_uma.json
 ```
+
+Approximate run time: ~4 min 42 s (1.9 molecules/s, GPU).
 
 ---
 
@@ -108,13 +110,22 @@ All energies in kcal/mol. **Params** = number of parameters actually fitted afte
 
 ### UMA
 
-*To be added.*
+| Model | Params | RMSD | MAD | Max dev | Adj. R² | CV RMSD |
+|-------|-------:|-----:|----:|--------:|--------:|--------:|
+| element | 7 | 3.27 | 2.32 | 21.27 | 0.9962 | 3.37 |
+| element_bo | 11 | 2.99 | 1.98 | 21.00 | 0.9968 | 3.12 |
+| hybrid | 13 | 2.78 | 1.74 | 20.89 | 0.9972 | 2.93 |
+| bondorder | 13 | 2.73 | 1.71 | 20.10 | 0.9973 | 2.88 |
+| bondorder_ext | 19 | 2.59 | 1.66 | 20.06 | 0.9976 | 2.78 |
+| bondorder_ar | 16 | 2.71 | 1.67 | 20.28 | 0.9974 | 2.87 |
+| extended | 18 | 2.69 | 1.69 | 20.89 | 0.9974 | 2.88 |
+| neighbour | 28 | 2.56 | 1.61 | 21.32 | 0.9976 | 2.85 |
 
 ---
 
 ## Notes
 
-- gxtb gives substantially better fits than xTB across all models (RMSD roughly 2–3× lower).
-- The `bondorder_ext` model gives the best xTB fit (CV RMSD 7.09); the `neighbour` model gives the best gxtb fit (CV RMSD 4.27), though most gxtb models are similar.
-- Max deviations are much larger for xTB (~40–72 kcal/mol) than gxtb (~20–24 kcal/mol).
+- UMA gives the best overall fits, followed by gxtb, then xTB (CV RMSD roughly 2.8–3.4 for UMA, 4.1–4.5 for gxtb, 7.1–11.9 for xTB).
+- The `bondorder_ext` model gives the best xTB fit (CV RMSD 7.09); for gxtb the `neighbour` model is best (CV RMSD 4.27); for UMA `bondorder_ext` is best (CV RMSD 2.78).
+- Max deviations are much larger for xTB (~40–72 kcal/mol) than gxtb or UMA (~20–24 kcal/mol).
 - Parameter counts listed are after dynamic filtering (e.g. O_sp, S_sp, O_3, S_3 are dropped for models where no training examples exist).

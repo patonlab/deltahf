@@ -5,7 +5,7 @@
 
 ## Introduction
 
-**deltahf** estimates gas-phase standard heats of formation (ΔHf°) from atom equivalent energies and semi-empirical quantum chemistry. This approach was described by Cawkwell et al.<sup>1</sup> using DFTB; this implementation replaces DFTB with [GFN2-xTB](https://github.com/grimme-lab/xtb), requiring the atom equivalent energies to be re-parameterized.
+**deltahf** estimates gas-phase standard heats of formation (ΔHf°) from atom equivalent energies and semi-empirical quantum chemistry. This approach was described by Cawkwell et al.<sup>1</sup> using DFTB; this implementation replaces DFTB with [GFN2-xTB](https://github.com/grimme-lab/xtb), gxTB, or other MLIPs, requiring the atom equivalent energies to be re-parameterized.
 
 The core equation is:
 
@@ -15,7 +15,7 @@ The core equation is:
 
 where `u_optimizer` is the total energy from the chosen geometry optimizer (xTB, gxtb, or MLIP) in kcal/mol, `nl` is the count of atom type `l`, and `εl` is the fitted atom equivalent energy.
 
-**Optional gxtb energies:** The `--use-gxtb` flag enables gxtb (trained against wB97M-V/def2-TZVPPD) single-point energies. **CRITICAL:** gxtb and xTB energies are on completely different scales and **must never be mixed**. If you fit with `--use-gxtb`, you **must** also predict with `--use-gxtb`. See [GXTB_USAGE.md](GXTB_USAGE.md) for details.
+**Optional gxtb energies:** The `--use-gxtb` flag enables gxtb single-point energies. **CRITICAL:** gxtb and xTB energies are on completely different scales and **must never be mixed**. If you fit with `--use-gxtb`, you **must** also predict with `--use-gxtb`. See [GXTB_USAGE.md](GXTB_USAGE.md) for details. The same note of caution applies to UMA energies
 
 ### Atom Equivalent Models
 
@@ -40,17 +40,6 @@ A bond-increment scheme was investigated as an alternative, using Kekulized expl
 
 The failure is fundamental, not incidental: bond counts are approximately linearly dependent on atom counts (e.g. `#H = #(C–H) + #(H–N) + #(H–O) + 2·#(H–H)`), making the design matrix near-singular. Least squares finds wildly large, cancelling coefficients that overfit the training set and generalise poorly. More deeply, the xTB energy decomposes naturally into per-atom (not per-bond) contributions, so atom equivalents are the correct functional form for this approach.
 
-## Quick Start
-
-```bash
-# Install
-conda env create -f environment.yml
-conda activate deltahf
-pip install -e ".[dev]"
-
-# Fit atom equivalents on the training set
-python -m deltahf fit -i deltahf/data/training_data.csv --model all --kfold 10 --n-conformers 1 -o params.json
-```
 
 ## Installation
 
@@ -70,7 +59,10 @@ pip install -e ".[dev]"
 pip install -e .
 ```
 
+
 ## Usage
+
+deltahf requires elemental parameters, specified in json format, to generate its predictions. If no json file is specified then default parameters generated on the training data (described below) will be used. 
 
 deltahf provides two CLI subcommands: `fit` (parameterize atom equivalents) and `predict` (apply fitted parameters to new molecules).
 
@@ -80,7 +72,7 @@ python -m deltahf [fit|predict] [options]
 
 ### Subcommand: `fit`
 
-Fit atom equivalent energies to a training set of molecules with known experimental ΔHf° values.
+Fit atom equivalent energies to a training set of molecules with known experimental ΔHf° values. 
 
 ```bash
 python -m deltahf fit -i training.csv --model all --kfold 10 --n-conformers 1 -o params.json
