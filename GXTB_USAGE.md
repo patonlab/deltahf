@@ -2,7 +2,7 @@
 
 ## Overview
 
-deltahf now supports using **gxtb** (wB97M-V/def2-TZVPPD) energies in addition to xTB (GFN2-xTB). However, **xTB and gxtb energies are on completely different scales** and **must never be mixed**.
+deltahf now supports using **gxtb** (parameterized against wB97M-V/def2-TZVPPD) energies in addition to xTB (GFN2-xTB). However, **xTB and gxtb energies are on completely different scales** and **must never be mixed**.
 
 ## Energy Scale Difference
 

@@ -42,16 +42,13 @@ atct/ATcT*.html
 # ATcT PubChem SMILES cache
 atct/atct_smiles_cache.json
 
-# Claude Code (local instructions)
-CLAUDE.md
-
 # Run outputs
 params.json
 fit_results.csv
 benchmark_results.csv
 mols.csv
 .benchmark_cache/
-.cache/
+.cache*
 .cache_xtb/
 .cache_xtb_*/
 nohup.out

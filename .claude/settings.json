@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull --rebase)",
+      "Bash(git push)",
+      "Bash(git rm --cached CODEBASE_ANALYSIS.md)"
+    ]
+  }
+}
