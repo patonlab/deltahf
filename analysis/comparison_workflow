@@ -1,7 +1,7 @@
 conda activate deltahf
 
 python -m deltahf predict \
-  -i cawkwell_input.csv \
+  -i cawkwell_energetic.csv \
   --model bondorder_ext \
   --cache-dir analysis/.cache_zinc_cawkwell/cawkwell \
   -o cawkwell_xtb_predictions.csv
