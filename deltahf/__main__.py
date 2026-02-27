@@ -46,7 +46,9 @@ CITATIONS = """\
       [1] Cawkwell, M. J.; Manner, V. W.; Kress, J. D. J. Chem. Inf. Model. 2021, 61, 3337-3347.
           DOI: 10.1021/acs.jcim.1c00312
       [2] Yalamanchi, K. K.; Monge-Palacios, M.; van Oudenhoven, V. C. O.; Gao, X.; Sarathy, S. M.
-          J. Phys. Chem. A 2020, 124, 6270-6283. DOI: 10.1021/acs.jpca.0c02785"""
+          J. Phys. Chem. A 2020, 124, 6270-6283. DOI: 10.1021/acs.jpca.0c02785
+      [3] Ruscic, B.; Bross, D. H. Active Thermochemical Tables (ATcT) values based on ver. 1.220
+          of the Thermochemical Network. Argonne National Laboratory, 2023. https://atct.anl.gov/"""
 
 SEP = "   " + "\u2500" * 50
 
@@ -339,7 +341,11 @@ def cmd_fit(args):
     print(CITATIONS)
     print()
 
-    df = pd.read_csv(args.input)
+    input_path = Path(args.input)
+    if not input_path.is_file():
+        print(f"   Error: Input file not found: {args.input}")
+        sys.exit(1)
+    df = pd.read_csv(input_path)
     print(f"   Loaded {len(df)} molecules from {args.input}")
     if args.use_xtb_wbos:
         print("   Using xTB Wiberg bond orders for element_bo atom classification")

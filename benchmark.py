@@ -193,7 +193,8 @@ def _compute_model_stats(results, df_indices, u_values, exp_dhf, param_names, co
     }
 
 
-def run_method(method_key: str, n_conformers_list: list[int], df: pd.DataFrame) -> list[dict]:
+def run_method(method_key: str, n_conformers_list: list[int], df: pd.DataFrame,
+               xtb_threads: int | None = None) -> list[dict]:
     """Run all models × all n_conformers × both subsets for one method."""
     cfg = METHODS[method_key]
     optimizer = cfg["optimizer"]
@@ -234,6 +235,7 @@ def run_method(method_key: str, n_conformers_list: list[int], df: pd.DataFrame) 
                 predictor=predictor,
                 use_gxtb=use_gxtb,
                 cache=cache,
+                xtb_threads=xtb_threads,
             )
             results.append(result)
         elapsed = time.time() - t0
@@ -297,6 +299,10 @@ def main():
         "--append", action="store_true",
         help="Append to existing CSV instead of overwriting",
     )
+    parser.add_argument(
+        "--xtb-threads", type=int, default=None, metavar="N",
+        help="Number of OpenMP threads for xTB (default: all available CPUs)",
+    )
     args = parser.parse_args()
 
     df = load_training_data()
@@ -315,7 +321,7 @@ def main():
         else:
             print(f"  Method: {METHODS[method_key]['label']}")
             print(f"{'=' * 60}")
-            method_rows = run_method(method_key, args.n_conformers, df)
+            method_rows = run_method(method_key, args.n_conformers, df, xtb_threads=args.xtb_threads)
         all_rows.extend(method_rows)
 
     new_df = pd.DataFrame(all_rows, columns=CSV_COLUMNS)

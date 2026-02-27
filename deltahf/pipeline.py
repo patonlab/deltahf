@@ -303,6 +303,8 @@ def process_csv(
     The ``predictor`` object (pre-loaded MLIP model) should be passed when
     ``optimizer`` is not ``"xtb"``; it is expensive to load per-molecule.
     """
+    if not csv_path.is_file():
+        raise FileNotFoundError(f"Input file not found: {csv_path}")
     df = pd.read_csv(csv_path)
     results = []
 
