@@ -15,9 +15,8 @@ from deltahf.smiles import SUPPORTED_ELEMENTS, heavy_atom_count, total_atom_coun
 PLOTS_DIR = Path(__file__).parent
 REPO_ROOT = PLOTS_DIR.parent
 
-CAWKWELL_CSV = PLOTS_DIR / "cawkwell_si_atom_counts.csv"
 ZINC_CSV = PLOTS_DIR / "250k_rndm_zinc_drugs_clean_3.csv"
-ZINC_SAMPLE_CSV = PLOTS_DIR / "zinc_sample_1000.csv"
+ZINC_SAMPLE_CSV = PLOTS_DIR / "zinc_sample_10000.csv"
 CAWKWELL_INPUT_CSV = PLOTS_DIR / "cawkwell_energetic.csv"
 CAWKWELL_OUT_CSV = PLOTS_DIR / "cawkwell_gxtb_predictions.csv"
 ZINC_OUT_CSV = PLOTS_DIR / "zinc_gxtb_predictions.csv"
@@ -36,12 +35,7 @@ def neutralize_smiles(smiles: str) -> str:
 
 
 def prepare_inputs(seed: int = 42):
-    # Cawkwell: extract smiles + name
-    cawk = pd.read_csv(CAWKWELL_CSV)[["smiles", "name"]]
-    cawk.to_csv(CAWKWELL_INPUT_CSV, index=False)
-    print(f"Cawkwell input: {len(cawk)} molecules -> {CAWKWELL_INPUT_CSV}")
-
-    # ZINC: filter to supported elements, sample 1000, then neutralize
+    # ZINC: filter to supported elements, sample 10000, then neutralize
     zinc = pd.read_csv(ZINC_CSV)
     def has_supported_elements(smi):
         mol = Chem.MolFromSmiles(smi.strip())
@@ -51,7 +45,7 @@ def prepare_inputs(seed: int = 42):
     zinc["smiles"] = zinc["smiles"].str.strip()
     supported = zinc[zinc["smiles"].apply(has_supported_elements)]
     print(f"ZINC: {len(supported)}/{len(zinc)} molecules have supported elements")
-    sample = supported.sample(n=1000, random_state=seed)[["smiles"]]
+    sample = supported.sample(n=10000, random_state=seed)[["smiles"]]
     sample["smiles"] = sample["smiles"].apply(neutralize_smiles)
     print(f"ZINC sample: {len(sample)} molecules (neutralized) -> {ZINC_SAMPLE_CSV}")
     sample.to_csv(ZINC_SAMPLE_CSV, index=False)
@@ -66,7 +60,7 @@ def run_predict(input_csv: Path, output_csv: Path, label: str):
         "-i", str(input_csv),
         "--model", "bondorder_ext",
         "--use-gxtb",
-        "--xtb-threads", "16",
+        "--xtb-threads", "8",
         "--cache-dir", str(CACHE_DIR / label),
         "-o", str(output_csv),
     ]

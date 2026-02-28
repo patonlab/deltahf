@@ -18,14 +18,14 @@ The training data (`deltahf/data/training_data.csv`) contains 531 molecules acro
 
 ---
 
-## ZINC vs Cawkwell Comparison
+## Comparing typical drug-like molecules with energetic CHNO molecules
 
 **Script:** `plot_zinc_vs_cawkwell.py`
 
 This script compares predicted ΔHf° distributions for two molecule sets:
 
 - **Cawkwell energetic set** (531 molecules) — energetic CHNO molecules from Cawkwell et al. (2021)
-- **ZINC drug-like sample** (1,000 molecules) — randomly sampled from the ZINC 250k drug-like dataset, filtered to supported elements and neutralised
+- **ZINC drug-like sample** (10,000 molecules) — randomly sampled from the ZINC 250k drug-like dataset, filtered to supported elements and neutralised
 
 The comparison assesses how the predicted ΔHf° distributions differ between energetic CHNO molecules and typical drug-like molecules.
 
@@ -60,7 +60,7 @@ The same comparison using xTB + `bondorder_ext` shows a similar pattern. The dis
 | File | Description |
 |------|-------------|
 | `250k_rndm_zinc_drugs_clean_3.csv` | ZINC 250k drug-like dataset (source data) |
-| `zinc_sample_1000.csv` | 1,000-molecule random sample (neutralised, supported elements only) |
+| `zinc_sample_10000.csv` | 10,000-molecule random sample (neutralised, supported elements only) |
 | `cawkwell_energetic.csv` | 531 energetic CHNO molecules from Cawkwell et al. (2021) |
 | `cawkwell_gxtb_predictions.csv` | gXTB + bondorder_ext predictions for Cawkwell energetic set |
 | `zinc_gxtb_predictions.csv` | gXTB + bondorder_ext predictions for ZINC sample |
